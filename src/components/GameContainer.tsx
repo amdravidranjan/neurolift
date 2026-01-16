@@ -165,7 +165,7 @@ export function GameContainer({ config, onFinish, children, modes = ['Standard']
                                         { value: '60', label: '1m' },
                                         { value: '120', label: '2m' },
                                     ]}
-                                    style={{ width: 200 }}
+                                    style={{ flex: 1, marginLeft: 10 }}
                                     density="small"
                                 />
                             </View>
