@@ -9,6 +9,9 @@ It features a diverse set of cognitive exercises designed for:
 4.  **Speed Reading & Processing** (RSVP Reading, Reaction Time, rapid visual processing)
 5.  **Cognitive Flexibility** (Task Switching, Inhibition Control, Adaptability)
 
+## 🎥 Gameplay Demo
+<video src="assets/video/demo2.mp4" controls="controls" style="max-width: 100%;"></video>
+
 My favorite feature is the **RSVP Reading** which helps you read faster. It needs insane amount of focus. (Ofcourse reading is easy, but grasping and processing information at 1000 wpm takes skill.)
 
 > [!NOTE]
