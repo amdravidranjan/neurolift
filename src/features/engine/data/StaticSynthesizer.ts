@@ -1,0 +1,7 @@
+
+import { SYNTHESIZER_BATCH_1, SYNTHESIZER_BATCH_2 } from './synthesizer/Batch1';
+
+export const STATIC_SYNTHESIZER_ITEMS = [
+    ...SYNTHESIZER_BATCH_1,
+    ...SYNTHESIZER_BATCH_2
+];
