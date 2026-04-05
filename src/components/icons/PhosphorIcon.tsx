@@ -24,10 +24,12 @@ interface PhosphorIconProps {
     name: string;
     size?: number;
     color?: string;
+    filled?: boolean;
 }
 
-export function PhosphorIcon({ name, size = 24, color = '#000' }: PhosphorIconProps) {
-    const pathData = PATHS[name];
+export function PhosphorIcon({ name, size = 24, color = '#000', filled = false }: PhosphorIconProps) {
+    const lookupName = filled ? `${name}-fill` : name;
+    const pathData = PATHS[lookupName] ?? PATHS[name];
     if (!pathData) return null;
 
     const paths = Array.isArray(pathData) ? pathData : [pathData];

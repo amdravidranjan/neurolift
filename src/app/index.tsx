@@ -64,7 +64,7 @@ export default function Page() {
         setRecentActivity(latest);
     }, []);
 
-    useFocusEffect(loadData);
+    useFocusEffect(useCallback(() => { loadData(); }, [loadData]));
 
     const handleDailyChallenge = async () => {
         if (!dailyExerciseId) return;
