@@ -1,118 +1,127 @@
 import React, { useState, useEffect } from 'react';
-import { View, StyleSheet, TextInput } from 'react-native';
-import { Text, Button, Surface } from 'react-native-paper';
+import { View, StyleSheet, TextInput, ScrollView } from 'react-native';
+import { Text, Button, Surface, useTheme } from 'react-native-paper';
 import { useRouter } from 'expo-router';
+import AsyncStorage from '@react-native-async-storage/async-storage';
 import { GameContainer } from '../../components/GameContainer';
 import { EXERCISE_REGISTRY } from '../../features/engine/Registry';
 import { sessionService } from '../../features/engine/SessionService';
 
-function LifeLoggerBoard({ isPlaying, difficulty, mode, onScore }: any) {
-    const router = useRouter();
-    const [entry, setEntry] = useState('');
-    const [phase, setPhase] = useState<'LOG' | 'RECALL'>('LOG');
+type Phase = 'LOG' | 'RECALL' | 'RATE' | 'DONE';
 
-    // Recall Mock
-    const [question, setQuestion] = useState<any>(null);
+function LifeBoard({ isPlaying, onScore }: any) {
+    const theme = useTheme();
+    const [phase, setPhase] = useState<Phase>('LOG');
+    const [todayEntry, setTodayEntry] = useState('');
+    const [yesterdayEntry, setYesterdayEntry] = useState<string | null>(null);
+    const [recall, setRecall] = useState('');
 
     useEffect(() => {
-        if (isPlaying && mode === 'Recall Quiz' && !question) setupRecall();
-    }, [isPlaying, difficulty, mode]);
+        if (isPlaying) loadYesterday();
+    }, [isPlaying]);
 
-    const setupRecall = () => {
-        setPhase('RECALL');
-        // Simulated past entry
-        setQuestion({
-            context: "Logged 2 days ago: 'Went to the zoo and saw a baby giraffe.'",
-            q: "What animal did you see?",
-            answer: "Giraffe",
-            options: ["Lion", "Giraffe", "Elephant", "Monkey"]
-        });
+    const loadYesterday = async () => {
+        const yDate = new Date();
+        yDate.setDate(yDate.getDate() - 1);
+        const key = `life_log_${yDate.toISOString().split('T')[0]}`;
+        const entry = await AsyncStorage.getItem(key);
+        setYesterdayEntry(entry);
+        setPhase(entry ? 'RECALL' : 'LOG');
     };
 
-    const handleAnswer = (ans: string) => {
-        if (ans === question.answer) onScore(100);
-        else onScore(0);
-        router.back(); // End after one q
+    const saveToday = async () => {
+        if (!todayEntry.trim()) return;
+        const key = `life_log_${new Date().toISOString().split('T')[0]}`;
+        await AsyncStorage.setItem(key, todayEntry.trim());
+        setPhase('DONE');
+        onScore(10);
+    };
+
+    const submitRecall = () => setPhase('RATE');
+
+    const rate = (stars: number) => {
+        onScore(stars * 2);
+        setPhase('LOG');
     };
 
     if (!isPlaying) return <View />;
 
-    if (mode === 'Recall Quiz' && question) {
+    if (phase === 'RECALL' && yesterdayEntry) {
+        return (
+            <ScrollView contentContainerStyle={styles.board}>
+                <Text variant="headlineMedium" style={{ color: theme.colors.onBackground, marginBottom: 8 }}>Recall Yesterday</Text>
+                <Text variant="bodySmall" style={{ color: theme.colors.onSurfaceVariant, marginBottom: 20 }}>What do you remember logging yesterday?</Text>
+                <TextInput
+                    style={[styles.input, { borderColor: theme.colors.outline, color: theme.colors.onSurface }]}
+                    placeholder="Write what you remember..."
+                    placeholderTextColor="#aaa"
+                    value={recall}
+                    onChangeText={setRecall}
+                    multiline
+                />
+                <Button mode="contained" onPress={submitRecall} style={{ borderRadius: 10, marginBottom: 12 }}>Check My Memory</Button>
+            </ScrollView>
+        );
+    }
+
+    if (phase === 'RATE') {
         return (
             <View style={styles.board}>
-                <Text variant="headlineSmall" style={{ marginBottom: 20 }}>Memory Check!</Text>
+                <Text variant="headlineMedium" style={{ color: theme.colors.onBackground, marginBottom: 16 }}>Yesterday you logged:</Text>
                 <Surface style={styles.card} elevation={2}>
-                    <Text variant="bodyLarge" style={{ fontStyle: 'italic', color: '#666', marginBottom: 20 }}>
-                        {question.context.substring(0, 20)}...
-                    </Text>
-                    <Text variant="titleLarge">{question.q}</Text>
+                    <Text variant="bodyLarge" style={{ color: theme.colors.onSurface }}>{yesterdayEntry}</Text>
                 </Surface>
-
-                <View style={styles.options}>
-                    {question.options.map((opt: string, i: number) => (
-                        <Button key={i} mode="contained" onPress={() => handleAnswer(opt)} style={{ margin: 5 }}>
-                            {opt}
-                        </Button>
+                <Text variant="titleMedium" style={{ marginTop: 24, marginBottom: 12, color: theme.colors.onBackground }}>How accurate was your recall?</Text>
+                <View style={{ flexDirection: 'row', gap: 10 }}>
+                    {[1, 2, 3, 4, 5].map(n => (
+                        <Button key={n} mode="outlined" onPress={() => rate(n)} style={{ borderRadius: 8 }}>{n}⭐</Button>
                     ))}
                 </View>
             </View>
         );
     }
 
+    if (phase === 'DONE') {
+        return (
+            <View style={styles.board}>
+                <Text style={{ fontSize: 64 }}>📓</Text>
+                <Text variant="headlineSmall" style={{ marginTop: 16, color: theme.colors.onBackground }}>Entry saved!</Text>
+            </View>
+        );
+    }
+
     return (
-        <View style={styles.board}>
-            <Text variant="titleMedium">What was the highlight of yesterday?</Text>
+        <ScrollView contentContainerStyle={styles.board}>
+            <Text variant="headlineMedium" style={{ color: theme.colors.onBackground, marginBottom: 8 }}>Log Today's Event</Text>
+            <Text variant="bodySmall" style={{ color: theme.colors.onSurfaceVariant, marginBottom: 20 }}>Write one memorable thing that happened today</Text>
             <TextInput
-                style={styles.input}
+                style={[styles.input, { borderColor: theme.colors.outline, color: theme.colors.onSurface }]}
+                placeholder="e.g. Had a great conversation about AI..."
+                placeholderTextColor="#aaa"
+                value={todayEntry}
+                onChangeText={setTodayEntry}
                 multiline
-                placeholder="I ate a sandwich..."
-                value={entry}
-                onChangeText={setEntry}
             />
-            <Text style={{ color: '#666', marginTop: 10 }}>
-                (We will test your recall of this in 48 hours.)
-            </Text>
-            <Button mode="contained" onPress={() => onScore(10)} style={{ marginTop: 20 }}>Save Entry</Button>
-        </View>
+            <Button mode="contained" onPress={saveToday} disabled={!todayEntry.trim()} style={{ borderRadius: 10 }}>Save Entry</Button>
+        </ScrollView>
     );
 }
 
 export default function LifeLogger() {
     const router = useRouter();
     const [score, setScore] = useState(0);
-
     return (
-        <GameContainer
-            config={{ ...EXERCISE_REGISTRY['life_logger'], params: {} }}
-            modes={['Daily Log', 'Recall Quiz']}
-            hideTimer={true}
-            hideDifficulty={true}
-            onFinish={async () => {
-                await sessionService.saveSession({
-                    exerciseId: 'life_logger',
-                    rawScore: 100,
-                    normalizedScore: 100,
-                    metrics: { completed: 1 },
-                    durationSeconds: 60
-                });
-                router.back();
-            }}
-        >
-            {({ isPlaying, difficulty, mode }) => (
-                <LifeLoggerBoard
-                    isPlaying={isPlaying}
-                    difficulty={difficulty}
-                    mode={mode}
-                    onScore={(s: number) => setScore(prev => prev + s)}
-                />
-            )}
+        <GameContainer config={{ ...EXERCISE_REGISTRY['life_logger'], params: {} }} hideTimer hideDifficulty onFinish={async () => {
+            await sessionService.saveSession({ exerciseId: 'life_logger', rawScore: score, normalizedScore: Math.min(score * 10, 100), metrics: { score }, durationSeconds: 0 });
+            router.back();
+        }}>
+            {({ isPlaying }) => <LifeBoard isPlaying={isPlaying} onScore={(s: number) => setScore(p => p + s)} />}
         </GameContainer>
     );
 }
 
 const styles = StyleSheet.create({
-    board: { flex: 1, padding: 20, alignItems: 'center' },
-    input: { height: 150, borderWidth: 1, borderColor: '#ccc', borderRadius: 10, padding: 10, marginTop: 20, textAlignVertical: 'top', width: '100%', backgroundColor: 'white' },
-    card: { padding: 20, backgroundColor: 'white', borderRadius: 10, marginBottom: 30, width: '100%', alignItems: 'center' },
-    options: { flexDirection: 'row', flexWrap: 'wrap', justifyContent: 'center' }
+    board: { flexGrow: 1, padding: 20, alignItems: 'center', justifyContent: 'center' },
+    input: { width: '100%', height: 150, borderWidth: 1, borderRadius: 10, padding: 12, marginBottom: 16, textAlignVertical: 'top' },
+    card: { padding: 20, borderRadius: 12, width: '100%', backgroundColor: 'white' },
 });

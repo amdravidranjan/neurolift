@@ -1,121 +1,120 @@
-import React, { useState, useEffect } from 'react';
-import { View, StyleSheet, TextInput, ScrollView, Keyboard } from 'react-native';
-import { Text, Button, Chip } from 'react-native-paper';
+import React, { useState, useEffect, useRef } from 'react';
+import { View, StyleSheet, TextInput, ScrollView } from 'react-native';
+import { Text, Button, Chip, useTheme } from 'react-native-paper';
 import { useRouter } from 'expo-router';
 import { GameContainer } from '../../components/GameContainer';
 import { EXERCISE_REGISTRY } from '../../features/engine/Registry';
 import { sessionService } from '../../features/engine/SessionService';
 
-function UsesBoard({ isPlaying, difficulty, mode, onScore, score }: any) {
-    const [item, setItem] = useState('');
-    const [constraint, setConstraint] = useState<string | null>(null);
+const OBJECTS = ['Brick', 'Paperclip', 'Newspaper', 'Shoe', 'Rubber band', 'Pencil', 'Plastic bottle', 'Fork', 'Cardboard box', 'Toothpick', 'Chair', 'Umbrella'];
+
+function AltUsesBoard({ isPlaying, onScore, score }: any) {
+    const theme = useTheme();
+    const [object, setObject] = useState('');
     const [input, setInput] = useState('');
     const [uses, setUses] = useState<string[]>([]);
+    const [submitted, setSubmitted] = useState(false);
+    const [timeLeft, setTimeLeft] = useState(60);
+    const timerRef = useRef<ReturnType<typeof setInterval> | null>(null);
 
     useEffect(() => {
-        if (isPlaying && !item) {
-            setup();
+        if (isPlaying) {
+            setObject(OBJECTS[Math.floor(Math.random() * OBJECTS.length)]);
+            setUses([]);
+            setInput('');
+            setSubmitted(false);
+            setTimeLeft(60);
+            timerRef.current = setInterval(() => {
+                setTimeLeft(t => {
+                    if (t <= 1) {
+                        clearInterval(timerRef.current!);
+                        setSubmitted(true);
+                        return 0;
+                    }
+                    return t - 1;
+                });
+            }, 1000);
         }
-    }, [isPlaying, difficulty, mode]);
-
-    const setup = () => {
-        const ITEMS = ['Brick', 'Paperclip', 'Spoon', 'Towel', 'Shoe', 'Box', 'Pen'];
-        setItem(ITEMS[Math.floor(Math.random() * ITEMS.length)]);
-
-        if (mode === 'Constraints') {
-            const CONS = ['Must involve water', 'Must be decorative', 'For a giant', 'Under 5 seconds', 'Silent usage'];
-            setConstraint(CONS[Math.floor(Math.random() * CONS.length)]);
-        } else {
-            setConstraint(null);
-        }
-        setUses([]);
-    };
+        return () => { if (timerRef.current) clearInterval(timerRef.current); };
+    }, [isPlaying]);
 
     const addUse = () => {
-        if (input.trim().length > 0) {
-            setUses(p => [...p, input]);
-            // Mock validation: In real app, AI would validate if it matches constraint
-            // Here, we trust the user or just give points for quantity.
-            // Constraint mode gets bonus points?
-            onScore(1);
+        const clean = input.trim();
+        if (clean && !uses.includes(clean) && uses.length < 20) {
+            setUses(prev => [...prev, clean]);
             setInput('');
         }
     };
 
+    const handleSubmit = () => {
+        if (timerRef.current) clearInterval(timerRef.current);
+        onScore(uses.length * 5);
+        setSubmitted(true);
+    };
+
     if (!isPlaying) return <View />;
 
-    return (
-        <View style={styles.board}>
-            <View style={{ position: 'absolute', top: 20, right: 20 }}>
-                <Text variant="titleMedium">Score: {score}</Text>
+    if (submitted) {
+        return (
+            <View style={styles.board}>
+                <Text variant="headlineMedium" style={{ color: theme.colors.onBackground }}>🎉 {uses.length} Uses!</Text>
+                <Text variant="bodyLarge" style={{ color: theme.colors.onSurfaceVariant, marginTop: 8 }}>Score: +{uses.length * 5} points</Text>
+                <View style={styles.chips}>
+                    {uses.map((u, i) => <Chip key={i} style={{ margin: 4 }}>{u}</Chip>)}
+                </View>
             </View>
-            <Text variant="headlineSmall">How many uses for a:</Text>
-            <Text variant="displayLarge" style={{ color: '#6200ee', marginVertical: 10, fontWeight: 'bold' }}>{item}</Text>
+        );
+    }
 
-            {constraint && (
-                <Chip icon="alert" style={{ marginBottom: 20, backgroundColor: '#ffebee' }}>Constraint: {constraint}</Chip>
-            )}
-
-            <View style={styles.inputArea}>
+    return (
+        <ScrollView contentContainerStyle={styles.board}>
+            <View style={styles.header}>
+                <Text variant="displaySmall" style={{ color: '#6200ee', fontWeight: 'bold' }}>{object}</Text>
+                <View style={styles.timerBadge}>
+                    <Text style={{ color: timeLeft < 10 ? '#F44336' : '#333', fontWeight: 'bold' }}>{timeLeft}s</Text>
+                </View>
+            </View>
+            <Text variant="bodyMedium" style={{ color: theme.colors.onSurfaceVariant, marginBottom: 16 }}>
+                List as many uses as you can! ({uses.length} so far)
+            </Text>
+            <View style={styles.inputRow}>
                 <TextInput
-                    style={styles.input}
+                    style={[styles.input, { borderColor: theme.colors.outline, color: theme.colors.onSurface, flex: 1 }]}
+                    placeholder="Type a use..."
+                    placeholderTextColor="#aaa"
                     value={input}
                     onChangeText={setInput}
-                    placeholder="Type a use..."
                     onSubmitEditing={addUse}
-                    autoFocus
+                    returnKeyType="done"
                 />
-                <Button mode="contained" onPress={addUse}>Add</Button>
+                <Button mode="contained" onPress={addUse} style={{ borderRadius: 10 }}>Add</Button>
             </View>
-
-            <ScrollView style={styles.list}>
-                {uses.slice().reverse().map((u, i) => (
-                    <Text key={i} style={styles.listItem}>• {u}</Text>
-                ))}
-            </ScrollView>
-
-            <Text style={{ marginTop: 10, color: 'gray' }}>Total: {uses.length}</Text>
-            <Button mode="text" onPress={Keyboard.dismiss}>Dismiss Keyboard</Button>
-        </View>
+            <View style={styles.chips}>
+                {uses.map((u, i) => <Chip key={i} style={{ margin: 4 }}>{u}</Chip>)}
+            </View>
+            <Button mode="outlined" onPress={handleSubmit} style={{ marginTop: 20, borderRadius: 10 }}>Done</Button>
+        </ScrollView>
     );
 }
 
 export default function AlternativeUses() {
     const router = useRouter();
     const [score, setScore] = useState(0);
-
     return (
-        <GameContainer
-            config={{ ...EXERCISE_REGISTRY['alternative_uses'], params: {} }}
-            modes={['Standard', 'Constraints']}
-            onFinish={async () => {
-                await sessionService.saveSession({
-                    exerciseId: 'alternative_uses',
-                    rawScore: score,
-                    normalizedScore: Math.min(score * 10, 100),
-                    metrics: { uses_generated: score },
-                    durationSeconds: 60
-                });
-                router.back();
-            }}
-        >
-            {({ isPlaying, difficulty, mode }) => (
-                <UsesBoard
-                    isPlaying={isPlaying}
-                    difficulty={difficulty}
-                    mode={mode}
-                    score={score}
-                    onScore={(s: number) => setScore(prev => prev + s)}
-                />
-            )}
+        <GameContainer config={{ ...EXERCISE_REGISTRY['alternative_uses'], params: {} }} hideTimer hideDifficulty onFinish={async () => {
+            await sessionService.saveSession({ exerciseId: 'alternative_uses', rawScore: score, normalizedScore: Math.min(score, 100), metrics: { score }, durationSeconds: 60 });
+            router.back();
+        }}>
+            {({ isPlaying }) => <AltUsesBoard isPlaying={isPlaying} score={score} onScore={(s: number) => setScore(p => p + s)} />}
         </GameContainer>
     );
 }
 
 const styles = StyleSheet.create({
-    board: { flex: 1, padding: 20, alignItems: 'center' },
-    inputArea: { flexDirection: 'row', width: '100%', gap: 10, marginBottom: 20 },
-    input: { flex: 1, borderWidth: 1, borderColor: '#ccc', borderRadius: 5, padding: 10, backgroundColor: 'white' },
-    list: { width: '100%', flex: 1, backgroundColor: '#f9f9f9', padding: 10, borderRadius: 8 },
-    listItem: { fontSize: 16, marginVertical: 4 }
+    board: { flexGrow: 1, padding: 20, alignItems: 'center', paddingTop: 40 },
+    header: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', width: '100%', marginBottom: 16 },
+    timerBadge: { backgroundColor: '#f5f5f5', padding: 10, borderRadius: 8, minWidth: 50, alignItems: 'center' },
+    inputRow: { flexDirection: 'row', gap: 10, width: '100%', marginBottom: 10 },
+    input: { height: 48, borderWidth: 1, borderRadius: 10, paddingHorizontal: 12 },
+    chips: { flexDirection: 'row', flexWrap: 'wrap', justifyContent: 'center' },
 });

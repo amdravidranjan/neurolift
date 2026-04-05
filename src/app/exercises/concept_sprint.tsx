@@ -1,216 +1,127 @@
 import React, { useState, useEffect } from 'react';
-import { View, StyleSheet, Image } from 'react-native';
-import { Text, Button, Surface } from 'react-native-paper';
+import { View, StyleSheet } from 'react-native';
+import { Text, Button, Surface, useTheme, ProgressBar } from 'react-native-paper';
 import { useRouter } from 'expo-router';
 import { GameContainer } from '../../components/GameContainer';
 import { EXERCISE_REGISTRY } from '../../features/engine/Registry';
 import { sessionService } from '../../features/engine/SessionService';
-import { ContentGenerator } from '../../features/engine/ContentGenerator';
 
-function ConceptBoard({ isPlaying, difficulty, mode, onScore }: any) {
-    const [phase, setPhase] = useState<'LEARN' | 'TEST'>('LEARN');
-    const [timeLeft, setTimeLeft] = useState(5);
+const PAIRS = [
+    { symbol: '⬛', concept: 'Night' }, { symbol: '🔺', concept: 'Danger' },
+    { symbol: '💧', concept: 'Calm' }, { symbol: '⚡', concept: 'Speed' },
+    { symbol: '🌀', concept: 'Chaos' }, { symbol: '🔒', concept: 'Safety' },
+    { symbol: '🌱', concept: 'Growth' }, { symbol: '🔥', concept: 'Energy' },
+    { symbol: '⭐', concept: 'Excellence' }, { symbol: '🌊', concept: 'Flow' },
+];
 
-    // Mode: Symbol Mapping (Learn associations)
-    const [map, setMap] = useState<any[]>([]);
-    const [testItem, setTestItem] = useState<any>(null);
+type Phase = 'LEARN' | 'TEST';
 
-    // Mode: Category Sprint (Is this X?)
-    const [category, setCategory] = useState<string>('');
-    const [word, setWord] = useState<string>('');
+function ConceptBoard({ isPlaying, score, onScore }: any) {
+    const theme = useTheme();
+    const [phase, setPhase] = useState<Phase>('LEARN');
+    const [learnIdx, setLearnIdx] = useState(0);
+    const [batch, setBatch] = useState<typeof PAIRS>([]);
+    const [question, setQuestion] = useState<typeof PAIRS[0] | null>(null);
+    const [options, setOptions] = useState<string[]>([]);
+    const [answered, setAnswered] = useState<string | null>(null);
+    const BATCH_SIZE = 3;
 
     useEffect(() => {
-        if (isPlaying && map.length === 0 && !category) setup();
-    }, [isPlaying, difficulty, mode]);
+        if (isPlaying) startBatch();
+    }, [isPlaying]);
 
-    const setup = () => {
-        if (mode === 'Symbol Mapping') {
-            // Generate 3-5 symbols
-            const syms = ['Ω', '∑', '≈', '∆', '∫', '¥'];
-            const words = ['Human', 'Machine', 'Water', 'Fire', 'Earth', 'Air'];
-            const count = 3 + difficulty;
-
-            const newMap: { sym: string, word: string }[] = [];
-            for (let i = 0; i < count; i++) {
-                newMap.push({ sym: syms[i], word: words[i] });
-            }
-            setMap(newMap);
-            setPhase('LEARN');
-            setTimeLeft(5 + (difficulty * 2)); // More time for harder levels
-
-            // Countdown for Learn phase
-            const timer = setInterval(() => {
-                setTimeLeft(t => {
-                    if (t <= 1) {
-                        clearInterval(timer);
-                        setPhase('TEST');
-                        pickTest(newMap);
-                        return 0;
-                    }
-                    return t - 1;
-                });
-            }, 1000);
-
-        } else {
-            // Category Sprint
-            setPhase('TEST');
-            nextCategorySprint();
-        }
+    const startBatch = () => {
+        const shuffled = [...PAIRS].sort(() => Math.random() - 0.5).slice(0, BATCH_SIZE);
+        setBatch(shuffled);
+        setLearnIdx(0);
+        setPhase('LEARN');
     };
 
-    const pickTest = (currentMap: any[]) => {
-        const item = currentMap[Math.floor(Math.random() * currentMap.length)];
-        setTestItem(item);
+    const nextLearn = () => {
+        if (learnIdx + 1 < batch.length) setLearnIdx(l => l + 1);
+        else startTest(batch);
     };
 
-    const nextCategorySprint = () => {
-        const cats = ['Living', 'Man-made', 'Edible'];
-        const target = cats[Math.floor(Math.random() * cats.length)];
-
-        // Generate a word that might or might not encompass it
-        // Mock data for speed
-        const DATA: any = {
-            'Living': ['Tree', 'Dog', 'Bacteria', 'Human'],
-            'Man-made': ['Car', 'Computer', 'Brick', 'Paper'],
-            'Edible': ['Apple', 'Bread', 'Soup', 'Cake']
-        };
-
-        const isMatch = Math.random() > 0.5;
-        let w = '';
-        if (isMatch) {
-            const list = DATA[target];
-            w = list[Math.floor(Math.random() * list.length)];
-        } else {
-            // Pick from others
-            const otherCat = cats.filter(c => c !== target)[0];
-            const list = DATA[otherCat];
-            w = list[Math.floor(Math.random() * list.length)];
-        }
-
-        setCategory(target);
-        setWord(w);
-        // Store if it's a match for checking later? 
-        // We'll calculate on the fly or store it in state if complex.
+    const startTest = (b: typeof PAIRS) => {
+        const q = b[Math.floor(Math.random() * b.length)];
+        setQuestion(q);
+        const distractors = PAIRS.filter(p => p.concept !== q.concept).sort(() => Math.random() - 0.5).slice(0, 3).map(p => p.concept);
+        setOptions([q.concept, ...distractors].sort(() => Math.random() - 0.5));
+        setAnswered(null);
+        setPhase('TEST');
     };
 
-    const handleAnswer = (val: string) => {
-        if (mode === 'Symbol Mapping') {
-            if (val === testItem.word) {
-                onScore(10);
-            } else {
-                onScore(-5);
-            }
-            pickTest(map);
-        } else {
-            // Category Sprint: YES/NO
-            // Check match again logic (simplified duplication for reliability)
-            const DATA: any = {
-                'Living': ['Tree', 'Dog', 'Bacteria', 'Human'],
-                'Man-made': ['Car', 'Computer', 'Brick', 'Paper'],
-                'Edible': ['Apple', 'Bread', 'Soup', 'Cake']
-            };
-            const isActuallyMatch = DATA[category]?.includes(word);
-
-            if ((val === 'YES' && isActuallyMatch) || (val === 'NO' && !isActuallyMatch)) {
-                onScore(5);
-            } else {
-                onScore(-2);
-            }
-            nextCategorySprint();
-        }
+    const handleAnswer = (choice: string) => {
+        setAnswered(choice);
+        if (question && choice === question.concept) onScore(10);
+        else onScore(-5);
+        setTimeout(() => startBatch(), 800);
     };
 
-    if (!isPlaying) return <View />;
+    if (!isPlaying || batch.length === 0) return <View />;
 
-    // RENDER
-    if (mode === 'Symbol Mapping' && phase === 'LEARN') {
+    if (phase === 'LEARN') {
+        const current = batch[learnIdx];
         return (
             <View style={styles.board}>
-                <Text variant="headlineMedium">Memorize!</Text>
-                <View style={styles.grid}>
-                    {map.map((m, i) => (
-                        <Surface key={i} style={styles.card} elevation={2}>
-                            <Text variant="displaySmall">{m.sym}</Text>
-                            <Text variant="bodyLarge">{m.word}</Text>
-                        </Surface>
-                    ))}
-                </View>
-                <Text variant="displayLarge" style={{ color: 'red', marginTop: 20 }}>{timeLeft}</Text>
+                <Text variant="labelMedium" style={{ color: '#aaa', marginBottom: 20 }}>LEARN · {learnIdx + 1}/{batch.length}</Text>
+                <ProgressBar progress={(learnIdx + 1) / batch.length} color="#6200ee" style={styles.progress} />
+                <Surface style={styles.card} elevation={3}>
+                    <Text style={{ fontSize: 80, textAlign: 'center' }}>{current.symbol}</Text>
+                    <Text variant="displaySmall" style={{ textAlign: 'center', color: '#6200ee', fontWeight: 'bold', marginTop: 16 }}>
+                        {current.concept}
+                    </Text>
+                </Surface>
+                <Button mode="contained" onPress={nextLearn} style={styles.btn} contentStyle={{ height: 52 }}>
+                    {learnIdx + 1 < batch.length ? 'Next →' : 'Start Quiz!'}
+                </Button>
             </View>
         );
     }
 
-    if (mode === 'Symbol Mapping' && phase === 'TEST') {
+    if (phase === 'TEST' && question) {
         return (
             <View style={styles.board}>
-                <Text variant="headlineSmall">What represents:</Text>
-                <Text variant="displayLarge" style={{ marginVertical: 20 }}>{testItem?.sym}</Text>
-                <View style={styles.controls}>
-                    {map.map((m, i) => (
-                        <Button key={i} mode="contained" onPress={() => handleAnswer(m.word)} style={styles.btn}>
-                            {m.word}
-                        </Button>
-                    ))}
+                <Text variant="titleLarge" style={{ marginBottom: 8, color: theme.colors.onBackground }}>Score: {score}</Text>
+                <Text variant="titleMedium" style={{ color: theme.colors.onSurfaceVariant, marginBottom: 20 }}>What does this symbol mean?</Text>
+                <Text style={{ fontSize: 80, marginBottom: 24 }}>{question.symbol}</Text>
+                <View style={styles.options}>
+                    {options.map(opt => {
+                        let col = theme.colors.primary;
+                        if (answered) col = opt === question.concept ? '#4CAF50' : opt === answered ? '#F44336' : '#aaa';
+                        return (
+                            <Button key={opt} mode="contained" onPress={() => !answered && handleAnswer(opt)}
+                                style={[styles.optBtn, { backgroundColor: col }]}>
+                                {opt}
+                            </Button>
+                        );
+                    })}
                 </View>
             </View>
         );
     }
 
-    // Category Sprint
-    return (
-        <View style={styles.board}>
-            <Text variant="titleMedium">Category:</Text>
-            <Text variant="headlineLarge" style={{ fontWeight: 'bold', color: '#6200ee' }}>{category}</Text>
-
-            <Surface style={styles.bigCard} elevation={4}>
-                <Text variant="displayMedium">{word}</Text>
-            </Surface>
-
-            <View style={styles.controls}>
-                <Button mode="contained" buttonColor="green" onPress={() => handleAnswer('YES')} style={styles.btnLarge}>YES</Button>
-                <Button mode="contained" buttonColor="red" onPress={() => handleAnswer('NO')} style={styles.btnLarge}>NO</Button>
-            </View>
-        </View>
-    );
+    return <View />;
 }
 
 export default function ConceptSprint() {
     const router = useRouter();
     const [score, setScore] = useState(0);
-
     return (
-        <GameContainer
-            config={{ ...EXERCISE_REGISTRY['concept_sprint'], params: {} }}
-            modes={['Symbol Mapping', 'Category Sprint']}
-            onFinish={async () => {
-                await sessionService.saveSession({
-                    exerciseId: 'concept_sprint',
-                    rawScore: score,
-                    normalizedScore: Math.min(score * 5, 100),
-                    metrics: { correct: score },
-                    durationSeconds: 60
-                });
-                router.back();
-            }}
-        >
-            {({ isPlaying, difficulty, mode }) => (
-                <ConceptBoard
-                    isPlaying={isPlaying}
-                    difficulty={difficulty}
-                    mode={mode}
-                    onScore={(s: number) => setScore(prev => prev + s)}
-                />
-            )}
+        <GameContainer config={{ ...EXERCISE_REGISTRY['concept_sprint'], params: {} }} onFinish={async () => {
+            await sessionService.saveSession({ exerciseId: 'concept_sprint', rawScore: score, normalizedScore: Math.min(score, 100), metrics: { score }, durationSeconds: 60 });
+            router.back();
+        }}>
+            {({ isPlaying }) => <ConceptBoard isPlaying={isPlaying} score={score} onScore={(s: number) => setScore(p => p + s)} />}
         </GameContainer>
     );
 }
 
 const styles = StyleSheet.create({
-    board: { flex: 1, alignItems: 'center', justifyContent: 'center' },
-    grid: { flexDirection: 'row', flexWrap: 'wrap', gap: 10, justifyContent: 'center', marginTop: 20 },
-    card: { padding: 10, alignItems: 'center', backgroundColor: 'white', borderRadius: 8, minWidth: 80 },
-    bigCard: { padding: 40, marginVertical: 40, backgroundColor: 'white', borderRadius: 10, minWidth: 200, alignItems: 'center' },
-    controls: { flexDirection: 'row', flexWrap: 'wrap', gap: 10, justifyContent: 'center' },
-    btn: { minWidth: 100, margin: 5 },
-    btnLarge: { minWidth: 120, height: 50, justifyContent: 'center' }
+    board: { flex: 1, padding: 20, alignItems: 'center', justifyContent: 'center' },
+    card: { padding: 40, borderRadius: 20, width: '100%', alignItems: 'center', backgroundColor: 'white', marginBottom: 32 },
+    btn: { width: '100%', borderRadius: 10 },
+    progress: { width: '100%', height: 6, borderRadius: 3, marginBottom: 24 },
+    options: { width: '100%', gap: 12 },
+    optBtn: { borderRadius: 10 },
 });

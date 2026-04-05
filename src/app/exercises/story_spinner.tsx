@@ -1,77 +1,83 @@
 import React, { useState, useEffect } from 'react';
-import { View, StyleSheet, TextInput, ScrollView, Keyboard } from 'react-native';
-import { Text, Button, Chip } from 'react-native-paper';
+import { View, StyleSheet, TextInput, ScrollView } from 'react-native';
+import { Text, Button, Chip, Surface, useTheme } from 'react-native-paper';
 import { useRouter } from 'expo-router';
 import { GameContainer } from '../../components/GameContainer';
 import { EXERCISE_REGISTRY } from '../../features/engine/Registry';
 import { sessionService } from '../../features/engine/SessionService';
 
-function StoryBoard({ isPlaying, difficulty, mode, onScore, score }: any) {
-    const [prompts, setPrompts] = useState<string[]>([]);
+const WORD_POOL = [
+    ['Ocean', 'Clock', 'Stranger'], ['Mirror', 'Forest', 'Music'],
+    ['Robot', 'Library', 'Storm'], ['Garden', 'Detective', 'Map'],
+    ['Castle', 'Scientist', 'Dream'], ['Market', 'Shadow', 'Key'],
+    ['Mountain', 'Inventor', 'Fog'], ['Ship', 'Child', 'Secret'],
+];
+
+function StoryBoard({ isPlaying, score, onScore }: any) {
+    const theme = useTheme();
+    const [words, setWords] = useState<string[]>([]);
     const [story, setStory] = useState('');
-    const [genre, setGenre] = useState('');
+    const [phase, setPhase] = useState<'WRITE' | 'RATE'>('WRITE');
 
     useEffect(() => {
-        if (isPlaying && prompts.length === 0) setup();
-    }, [isPlaying, difficulty, mode]);
-
-    const setup = () => {
-        if (mode === 'Genre Mode') {
-            const genres = ['Sci-Fi', 'Fantasy', 'Noir', 'Comedy', 'Horror'];
-            const g = genres[Math.floor(Math.random() * genres.length)];
-            setGenre(g);
-
-            // Mock content generator
-            const PROMPTS: any = {
-                'Sci-Fi': ['Spaceship', 'AI', 'Nebula'],
-                'Fantasy': ['Dragon', 'Sword', 'Magic'],
-                'Noir': ['Rain', 'Detective', 'Shadow'],
-                'Comedy': ['Banana', 'Clown', 'Pie'],
-                'Horror': ['Ghost', 'Attic', 'Whisper']
-            };
-            setPrompts(PROMPTS[g]);
-        } else {
-            // Standard Random
-            setPrompts(['Key', 'Door', 'Future']);
+        if (isPlaying) {
+            setWords(WORD_POOL[Math.floor(Math.random() * WORD_POOL.length)]);
+            setStory('');
+            setPhase('WRITE');
         }
+    }, [isPlaying]);
+
+    const handleSubmit = () => {
+        if (story.trim().length < 20) return;
+        setPhase('RATE');
     };
 
-    const submit = () => {
-        if (story.length > 50) onScore(100);
-        else onScore(50);
-        Keyboard.dismiss();
+    const handleRate = (stars: number) => {
+        onScore(stars * 4);
+        setWords(WORD_POOL[Math.floor(Math.random() * WORD_POOL.length)]);
+        setStory('');
+        setPhase('WRITE');
     };
 
     if (!isPlaying) return <View />;
 
-    return (
-        <ScrollView contentContainerStyle={styles.scroll}>
+    if (phase === 'RATE') {
+        return (
             <View style={styles.board}>
-                <View style={{ position: 'absolute', top: 10, right: 20 }}>
-                    <Text variant="titleMedium">Score: {score}</Text>
-                </View>
-                <Text variant="headlineSmall" style={{ marginTop: 20 }}>Write a story!</Text>
-
-                {genre ? <Chip icon="book" style={{ marginVertical: 10, backgroundColor: '#e3f2fd' }}>{genre}</Chip> : null}
-
-                <View style={styles.promptBox}>
-                    {prompts.map((w, i) => (
-                        <Chip key={i} style={styles.chip}>{w}</Chip>
+                <Text variant="headlineMedium" style={{ color: theme.colors.onBackground, marginBottom: 16 }}>Your Story:</Text>
+                <Surface style={styles.storyCard} elevation={2}>
+                    <Text variant="bodyLarge" style={{ color: theme.colors.onSurface }}>{story}</Text>
+                </Surface>
+                <Text variant="titleMedium" style={{ marginTop: 24, marginBottom: 12 }}>Rate your creativity:</Text>
+                <View style={{ flexDirection: 'row', gap: 8 }}>
+                    {[1, 2, 3, 4, 5].map(n => (
+                        <Button key={n} mode="outlined" onPress={() => handleRate(n)} style={{ borderRadius: 8 }}>{n}⭐</Button>
                     ))}
                 </View>
-
-                <TextInput
-                    style={styles.input}
-                    multiline
-                    placeholder="Once upon a time..."
-                    value={story}
-                    onChangeText={setStory}
-                />
-
-                <Button mode="contained" onPress={submit} style={{ marginTop: 20 }}>
-                    Publish Story ({story.length} chars)
-                </Button>
             </View>
+        );
+    }
+
+    return (
+        <ScrollView contentContainerStyle={styles.board}>
+            <Text variant="titleMedium" style={{ color: theme.colors.onSurfaceVariant, marginBottom: 12 }}>
+                Write a sentence connecting all 3 words:
+            </Text>
+            <View style={styles.wordRow}>
+                {words.map(w => <Chip key={w} style={{ backgroundColor: '#6200ee22', margin: 4 }} textStyle={{ color: '#6200ee', fontWeight: 'bold' }}>{w}</Chip>)}
+            </View>
+            <TextInput
+                style={[styles.input, { borderColor: theme.colors.outline, color: theme.colors.onSurface }]}
+                placeholder="Write your story here..."
+                placeholderTextColor="#aaa"
+                value={story}
+                onChangeText={setStory}
+                multiline
+            />
+            <Text variant="bodySmall" style={{ color: '#aaa', marginBottom: 12 }}>{story.length} characters</Text>
+            <Button mode="contained" onPress={handleSubmit} disabled={story.trim().length < 20} style={{ borderRadius: 10, width: '100%' }}>
+                Submit Story
+            </Button>
         </ScrollView>
     );
 }
@@ -79,39 +85,19 @@ function StoryBoard({ isPlaying, difficulty, mode, onScore, score }: any) {
 export default function StorySpinner() {
     const router = useRouter();
     const [score, setScore] = useState(0);
-
     return (
-        <GameContainer
-            config={{ ...EXERCISE_REGISTRY['story_spinner'], params: {} }}
-            modes={['Standard', 'Genre Mode']}
-            onFinish={async () => {
-                await sessionService.saveSession({
-                    exerciseId: 'story_spinner',
-                    rawScore: score,
-                    normalizedScore: Math.min(score, 100),
-                    metrics: { length: score },
-                    durationSeconds: 60
-                });
-                router.back();
-            }}
-        >
-            {({ isPlaying, difficulty, mode }) => (
-                <StoryBoard
-                    isPlaying={isPlaying}
-                    difficulty={difficulty}
-                    mode={mode}
-                    score={score}
-                    onScore={(s: number) => setScore(s)}
-                />
-            )}
+        <GameContainer config={{ ...EXERCISE_REGISTRY['story_spinner'], params: {} }} hideTimer hideDifficulty onFinish={async () => {
+            await sessionService.saveSession({ exerciseId: 'story_spinner', rawScore: score, normalizedScore: Math.min(score, 100), metrics: { score }, durationSeconds: 60 });
+            router.back();
+        }}>
+            {({ isPlaying }) => <StoryBoard isPlaying={isPlaying} score={score} onScore={(s: number) => setScore(p => p + s)} />}
         </GameContainer>
     );
 }
 
 const styles = StyleSheet.create({
-    scroll: { flexGrow: 1 },
-    board: { padding: 20, alignItems: 'center' },
-    promptBox: { flexDirection: 'row', flexWrap: 'wrap', gap: 10, marginVertical: 20, justifyContent: 'center' },
-    chip: { backgroundColor: '#fff9c4' },
-    input: { width: '100%', height: 200, borderWidth: 1, borderColor: '#ccc', borderRadius: 10, padding: 10, textAlignVertical: 'top', backgroundColor: 'white' }
+    board: { flexGrow: 1, padding: 20, alignItems: 'center', paddingTop: 40 },
+    wordRow: { flexDirection: 'row', marginBottom: 20, flexWrap: 'wrap', justifyContent: 'center' },
+    input: { width: '100%', height: 150, borderWidth: 1, borderRadius: 10, padding: 12, marginBottom: 8, textAlignVertical: 'top' },
+    storyCard: { padding: 20, borderRadius: 12, width: '100%', backgroundColor: 'white' },
 });
