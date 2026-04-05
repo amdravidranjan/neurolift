@@ -1,14 +1,11 @@
 import React, { useState, useEffect } from 'react';
 import { View, StyleSheet, TextInput } from 'react-native';
-import { Text, Button, Surface, Modal, Portal } from 'react-native-paper';
+import { Text, Button, Modal, Portal, ProgressBar, useTheme } from 'react-native-paper';
 import { useRouter } from 'expo-router';
 import { GameContainer } from '../../components/GameContainer';
 import { EXERCISE_REGISTRY } from '../../features/engine/Registry';
 import { sessionService } from '../../features/engine/SessionService';
-import { ContentGenerator } from '../../features/engine/ContentGenerator';
-import { database } from '../../database';
-import ContentItem from '../../database/models/ContentItem';
-import { Q } from '@nozbe/watermelondb';
+import { contentService, ContentSource, Passage } from '../../features/engine/ContentService';
 
 interface RSVPBoardProps {
     isPlaying: boolean;
@@ -17,156 +14,103 @@ interface RSVPBoardProps {
 }
 
 function RSVPBoard({ isPlaying, settings, onScore }: RSVPBoardProps) {
+    const theme = useTheme();
     const [phase, setPhase] = useState<'IDLE' | 'READING' | 'QUESTION'>('IDLE');
     const [words, setWords] = useState<string[]>([]);
     const [index, setIndex] = useState(0);
     const [currentChunk, setCurrentChunk] = useState('');
-
-    // Question State
-    const [question, setQuestion] = useState<any>(null);
-    const [currentItem, setCurrentItem] = useState<any>(null); // Track for repeat
-    const [showMenu, setShowMenu] = useState(false); // Menu State
-
-    // Speed Calculation
-    const wpm = settings.wpm || 300;
-    const chunkSize = settings.chunk || 1;
-    const isManual = settings.source === 'Manual Input';
-
-    // Delay = (60000 / WPM) * ChunkSize
-    const delay = (60000 / wpm) * chunkSize;
-
-    // DB State
-    const [dbItems, setDbItems] = useState<any[]>([]);
-
-    // Manual State
+    const [passage, setPassage] = useState<Passage | null>(null);
+    const [showMenu, setShowMenu] = useState(false);
     const [customText, setCustomText] = useState('');
     const [manualReady, setManualReady] = useState(false);
+    const [loading, setLoading] = useState(false);
+
+    const wpm: number = settings.wpm || 300;
+    const chunkSize: number = settings.chunk || 1;
+    const source: ContentSource = settings.source === 'Manual Input' ? 'manual'
+        : settings.source === 'Wikipedia' ? 'wikipedia'
+        : settings.source === 'News' ? 'news'
+        : 'database';
+    const delay = (60000 / wpm) * chunkSize;
+    const isManual = source === 'manual';
 
     useEffect(() => {
-        if (isPlaying && phase === 'IDLE') {
-            if (isManual && !manualReady) {
-                // Wait for user input
-            } else {
-                // Only load if NOT showing menu
-                if (!showMenu) loadAndStart();
-            }
+        if (isPlaying && phase === 'IDLE' && !showMenu) {
+            if (isManual && !manualReady) return;
+            if (!isManual) loadAndStart();
         }
-    }, [isPlaying, phase, wpm, chunkSize, isManual, manualReady, showMenu]);
+    }, [isPlaying, phase, showMenu, isManual, manualReady]);
 
     const loadAndStart = async () => {
-        if (dbItems.length === 0) {
-            try {
-                const collection = database.collections.get<ContentItem>('content_items');
-                const items = await collection.query(
-                    Q.where('exercise_id', 'rsvp_reader'),
-                    Q.take(10)
-                ).fetch();
-
-                if (items.length > 0) {
-                    const shuffled = items.sort(() => Math.random() - 0.5).map(i => JSON.parse(i.contentJson));
-                    setDbItems(shuffled);
-                    startFromDb(shuffled[0]);
-                } else {
-                    startReading();
-                }
-            } catch (e) {
-                startReading();
-            }
-        } else {
-            // Already have items, pick random or next
-            const next = dbItems[Math.floor(Math.random() * dbItems.length)];
-            startFromDb(next);
-        }
-    };
-
-    const startFromDb = (item: any) => {
-        setCurrentItem(item); // Save for repeat
-        setQuestion(item.question);
-        setWords(item.text.split(' '));
+        setLoading(true);
+        const p = await contentService.getPassage('rsvp_reader', source);
+        setLoading(false);
+        setPassage(p);
+        setWords(p.text.split(/\s+/));
         setIndex(0);
         setPhase('READING');
     };
 
     useEffect(() => {
-        let timer: any;
+        let timer: ReturnType<typeof setTimeout>;
         if (phase === 'READING' && index < words.length) {
             timer = setTimeout(() => {
-                const chunk = words.slice(index, index + chunkSize).join(' ');
-                setCurrentChunk(chunk);
+                setCurrentChunk(words.slice(index, index + chunkSize).join(' '));
                 setIndex(prev => prev + chunkSize);
             }, delay);
-        } else if (phase === 'READING' && index >= words.length) {
-            // End of text
-            if (question) {
+        } else if (phase === 'READING' && index >= words.length && words.length > 0) {
+            if (passage?.q) {
                 setPhase('QUESTION');
             } else {
-                // No question (e.g. manual mode without auto-gen), just show menu
                 setShowMenu(true);
                 setPhase('IDLE');
             }
         }
         return () => clearTimeout(timer);
-    }, [phase, index, words, delay, chunkSize, question]);
-
-    const startReading = () => {
-        // Fallback generator
-        const text = ContentGenerator.generateTextChunk(1) + " " + ContentGenerator.generateTextChunk(1);
-        const item = { text, question: null }; // No question for random gen yet?
-        // Actually generator usually makes questions? 
-        // Let's assume manual for now if fallback.
-        setWords(text.split(' '));
-        setIndex(0);
-        setPhase('READING');
-        setQuestion(null);
-        setCurrentItem(item);
-    };
+    }, [phase, index, words, delay, chunkSize]);
 
     const handleAnswer = (ans: string) => {
-        if (ans === question.answer) onScore(100);
-        else onScore(-50); // Penalty
-
-        // Transition state to allow Menu to appear
+        if (passage?.a && ans === passage.a) onScore(100);
+        else onScore(-50);
         setPhase('IDLE');
         setShowMenu(true);
     };
 
     const handleAction = (action: 'REPEAT' | 'NEXT') => {
-        setShowMenu(false); // Close menu
+        setShowMenu(false);
         if (action === 'REPEAT') {
             if (isManual) {
-                // Repeat manual text
-                const clean = customText.trim();
-                setWords(clean.split(/\s+/));
+                setWords(customText.trim().split(/\s+/));
                 setIndex(0);
                 setPhase('READING');
-            } else {
-                if (currentItem) startFromDb(currentItem);
-                else startReading();
+            } else if (passage) {
+                setWords(passage.text.split(/\s+/));
+                setIndex(0);
+                setPhase('READING');
             }
         } else {
-            // NEXT
-            if (isManual) {
-                setManualReady(false); // Go back to input screen
-                setPhase('IDLE');
-            } else {
-                setPhase('IDLE'); // Trigger useEffect to load new
-            }
+            if (isManual) { setManualReady(false); setPhase('IDLE'); }
+            else setPhase('IDLE');
         }
     };
 
     if (!isPlaying) return <View />;
 
-    // Manual Input UI
+    if (loading) {
+        return <View style={styles.board}><Text variant="headlineSmall">Loading passage...</Text></View>;
+    }
+
     if (isManual && !manualReady) {
         return (
             <View style={styles.board}>
                 <Text variant="headlineSmall" style={{ marginBottom: 10 }}>Paste Your Text</Text>
                 <TextInput
-                    style={{ width: '100%', height: 200, borderColor: '#ccc', borderWidth: 1, padding: 10, marginBottom: 20, borderRadius: 8, backgroundColor: 'white', textAlignVertical: 'top' }}
+                    style={[styles.textInput, { borderColor: theme.colors.outline, color: theme.colors.onSurface }]}
                     multiline
                     value={customText}
                     onChangeText={setCustomText}
-                    placeholder="Paste article, book text, or study notes here..."
+                    placeholder="Paste article, notes, or study text..."
+                    placeholderTextColor="#aaa"
                 />
                 <Button mode="contained" onPress={() => {
                     const clean = customText.trim();
@@ -175,7 +119,6 @@ function RSVPBoard({ isPlaying, settings, onScore }: RSVPBoardProps) {
                         setWords(clean.split(/\s+/));
                         setIndex(0);
                         setPhase('READING');
-                        setQuestion(null); // No auto-questions for manual yet
                     }
                 }}>
                     Read Now
@@ -185,21 +128,34 @@ function RSVPBoard({ isPlaying, settings, onScore }: RSVPBoardProps) {
     }
 
     if (phase === 'READING') {
+        const progressVal = words.length > 0 ? index / words.length : 0;
         return (
             <View style={styles.board}>
-                <Text variant="displayLarge" style={{ fontWeight: 'bold', textAlign: 'center' }}>{currentChunk}</Text>
-                <Text style={{ position: 'absolute', bottom: 50, color: '#aaa' }}>Speed: {wpm} WPM ({chunkSize} word/flash)</Text>
+                <ProgressBar progress={progressVal} color={theme.colors.primary} style={styles.readingProgress} />
+                <Text variant="displayLarge" style={[styles.word, { color: theme.colors.onBackground }]}>
+                    {currentChunk}
+                </Text>
+                {passage?.source && (
+                    <Text style={[styles.sourceLabel, { color: theme.colors.onSurfaceVariant }]}>
+                        Source: {passage.source}
+                    </Text>
+                )}
+                <Text style={[styles.wpmLabel, { color: theme.colors.onSurfaceVariant }]}>
+                    {wpm} WPM · {chunkSize}w/flash
+                </Text>
             </View>
         );
     }
 
-    if (phase === 'QUESTION' && question) {
+    if (phase === 'QUESTION' && passage?.q) {
         return (
             <View style={styles.board}>
-                <Text variant="headlineMedium" style={{ marginBottom: 20 }}>{question.q}</Text>
+                <Text variant="headlineMedium" style={{ marginBottom: 24, textAlign: 'center', color: theme.colors.onBackground }}>
+                    {passage.q}
+                </Text>
                 <View style={styles.options}>
-                    {question.options.map((opt: string, i: number) => (
-                        <Button key={i} mode="contained" onPress={() => handleAnswer(opt)} style={{ margin: 5 }}>
+                    {(passage.o ?? []).map((opt, i) => (
+                        <Button key={i} mode="contained" onPress={() => handleAnswer(opt)} style={styles.optBtn}>
                             {opt}
                         </Button>
                     ))}
@@ -211,14 +167,18 @@ function RSVPBoard({ isPlaying, settings, onScore }: RSVPBoardProps) {
     return (
         <View style={styles.board}>
             <Portal>
-                <Modal visible={showMenu} onDismiss={() => setShowMenu(false)} contentContainerStyle={styles.modal}>
-                    <Text variant="headlineMedium" style={{ textAlign: 'center', marginBottom: 20 }}>Passage Complete</Text>
+                <Modal
+                    visible={showMenu}
+                    onDismiss={() => setShowMenu(false)}
+                    contentContainerStyle={[styles.modal, { backgroundColor: theme.colors.surface }]}
+                >
+                    <Text variant="headlineMedium" style={{ textAlign: 'center', marginBottom: 20, color: theme.colors.onSurface }}>
+                        Passage Complete
+                    </Text>
                     <View style={{ gap: 10 }}>
-                        <Button mode="contained" onPress={() => handleAction('REPEAT')}>
-                            Repeat Passage
-                        </Button>
+                        <Button mode="contained" onPress={() => handleAction('REPEAT')}>Repeat Passage</Button>
                         <Button mode="outlined" onPress={() => handleAction('NEXT')}>
-                            {isManual ? "Paste New Text" : "Next Passage"}
+                            {isManual ? 'Paste New Text' : 'Next Passage'}
                         </Button>
                     </View>
                 </Modal>
@@ -234,24 +194,20 @@ export default function RSVPReader() {
     return (
         <GameContainer
             config={{ ...EXERCISE_REGISTRY['rsvp_reader'], params: {} }}
-            hideTimer={true} // Zen Mode
+            hideTimer={true}
             onFinish={async () => {
                 await sessionService.saveSession({
                     exerciseId: 'rsvp_reader',
                     rawScore: score,
                     normalizedScore: Math.min(score, 100),
                     metrics: { correct_rounds: score / 100 },
-                    durationSeconds: 60
+                    durationSeconds: 60,
                 });
                 router.back();
             }}
         >
             {({ isPlaying, customSettings }) => (
-                <RSVPBoard
-                    isPlaying={isPlaying}
-                    settings={customSettings}
-                    onScore={(s: number) => setScore(prev => prev + s)}
-                />
+                <RSVPBoard isPlaying={isPlaying} settings={customSettings} onScore={(s) => setScore(prev => prev + s)} />
             )}
         </GameContainer>
     );
@@ -259,6 +215,12 @@ export default function RSVPReader() {
 
 const styles = StyleSheet.create({
     board: { flex: 1, padding: 20, alignItems: 'center', justifyContent: 'center' },
-    options: { flexDirection: 'row', flexWrap: 'wrap', justifyContent: 'center' },
-    modal: { backgroundColor: 'white', padding: 20, margin: 40, borderRadius: 10 }
+    word: { fontWeight: 'bold', textAlign: 'center', marginVertical: 20 },
+    readingProgress: { width: '90%', height: 4, borderRadius: 2, marginBottom: 20 },
+    wpmLabel: { position: 'absolute', bottom: 40, fontSize: 12 },
+    sourceLabel: { position: 'absolute', bottom: 60, fontSize: 12 },
+    options: { flexDirection: 'row', flexWrap: 'wrap', justifyContent: 'center', gap: 10 },
+    optBtn: { margin: 5, minWidth: 120 },
+    modal: { padding: 20, margin: 40, borderRadius: 10 },
+    textInput: { width: '100%', height: 200, borderWidth: 1, padding: 10, marginBottom: 20, borderRadius: 8, textAlignVertical: 'top' },
 });
