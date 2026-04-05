@@ -211,7 +211,7 @@ function RSVPBoard({ isPlaying, settings, onScore }: RSVPBoardProps) {
     return (
         <View style={styles.board}>
             <Portal>
-                <Modal visible={showMenu} onDismiss={() => { }} contentContainerStyle={styles.modal}>
+                <Modal visible={showMenu} onDismiss={() => setShowMenu(false)} contentContainerStyle={styles.modal}>
                     <Text variant="headlineMedium" style={{ textAlign: 'center', marginBottom: 20 }}>Passage Complete</Text>
                     <View style={{ gap: 10 }}>
                         <Button mode="contained" onPress={() => handleAction('REPEAT')}>

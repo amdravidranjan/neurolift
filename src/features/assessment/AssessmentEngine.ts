@@ -46,20 +46,23 @@ export class AssessmentEngine {
     }
 
     static calculateReport(results: any[]) {
+        // Domain keys match radar chart axes: Memory, Inhibition, Speed, Flexibility, Solving
         const scores: Record<string, number> = {
             'Memory': 0,
-            'Control': 0,
-            'Reasoning': 0,
-            'Processing Speed': 0
+            'Inhibition': 0,
+            'Speed': 0,
+            'Flexibility': 0,
+            'Solving': 0
         };
 
-        const counts: Record<string, number> = { 'Memory': 0, 'Control': 0, 'Reasoning': 0, 'Processing Speed': 0 };
+        const counts: Record<string, number> = { 'Memory': 0, 'Inhibition': 0, 'Speed': 0, 'Flexibility': 0, 'Solving': 0 };
 
         results.forEach(r => {
-            let domain = 'Processing Speed'; // Default
+            let domain = 'Speed'; // Default
             if (r.id === 'test_memory_update' || r.id === 'test_capacity') domain = 'Memory';
-            if (r.id === 'test_inhibition') domain = 'Control';
-            if (r.id === 'test_reasoning' || r.id === 'test_manipulation') domain = 'Reasoning';
+            if (r.id === 'test_inhibition') domain = 'Inhibition';
+            if (r.id === 'test_reasoning') domain = 'Flexibility';
+            if (r.id === 'test_manipulation') domain = 'Solving';
 
             scores[domain] += r.score;
             counts[domain]++;

@@ -61,10 +61,9 @@ function RapidBoard({ isPlaying, difficulty, mode, onScore }: RapidBoardProps) {
 
     const generateFromDb = (item: any) => {
         if (item) {
-            // Shuffle options to prevent answer predictability (Static data has answer at index 0)
-            const prob = JSON.parse(item.contentJson);
-            const shuffledOptions = [...prob.options].sort(() => Math.random() - 0.5);
-            setProblem({ ...prob, options: shuffledOptions });
+            // item is already a parsed object (mapped via JSON.parse in loadItems)
+            const shuffledOptions = [...item.options].sort(() => Math.random() - 0.5);
+            setProblem({ ...item, options: shuffledOptions });
         } else {
             generate();
         }
