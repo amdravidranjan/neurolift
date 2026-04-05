@@ -105,7 +105,16 @@ export const EXERCISE_REGISTRY: Record<string, ExerciseConfig> = {
     'alternative_uses': { id: 'alternative_uses', pillarId: 'creativity', name: 'Alternative Uses', description: 'Generate as many creative uses for an object as possible.', baseDifficulty: { speedMs: 0, complexity: 1 }, hidden: true },
     'shape_crafter': { id: 'shape_crafter', pillarId: 'creativity', name: 'Shape Crafter', description: 'Create recognized objects using simple shapes.', baseDifficulty: { speedMs: 0, complexity: 1 }, hidden: true },
     'story_spinner': { id: 'story_spinner', pillarId: 'creativity', name: 'Story Spinner', description: 'Weave disparate words into a coherent narrative.', baseDifficulty: { speedMs: 0, complexity: 1 }, hidden: true },
-    'micro_expression': { id: 'micro_expression', pillarId: 'social', name: 'Micro-Expression', description: 'Identify fleeting emotional expressions.', baseDifficulty: { speedMs: 500, complexity: 1 }, hidden: true },
+    'micro_expression': {
+        id: 'micro_expression', pillarId: 'social', name: 'Micro-Expression',
+        description: 'Identify fleeting emotional expressions.',
+        baseDifficulty: { speedMs: 500, complexity: 1 },
+        tutorial: "A face will flash briefly. Identify the emotion as fast as you can.",
+        settingsSchema: [
+            { key: 'flashMs', label: 'Flash Duration (ms)', type: 'slider', min: 200, max: 1000, step: 100, default: 500 },
+        ],
+        hidden: true,
+    },
     'tone_triangulator': { id: 'tone_triangulator', pillarId: 'social', name: 'Tone Triangulator', description: 'Determine the emotional tone behind statements.', baseDifficulty: { speedMs: 0, complexity: 1 }, hidden: true },
 
     'tower_of_hanoi': {
