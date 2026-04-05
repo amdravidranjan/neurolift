@@ -5,6 +5,8 @@ import { Q } from '@nozbe/watermelondb';
 import { READING_BATCH_1 } from './data/reading/Batch1';
 import { READING_BATCH_2 } from './data/reading/Batch2';
 import { READING_BATCH_3 } from './data/reading/Batch3';
+import { READING_BATCH_4 } from './data/reading/Batch4';
+import { READING_BATCH_5 } from './data/reading/Batch5';
 
 const SEEN_RING_PREFIX = 'neurolift_seen_passages_';
 const RING_SIZE = 20;
@@ -20,7 +22,7 @@ export interface Passage {
 }
 
 // Fallback static pool combining all batches
-const STATIC_POOL = [...READING_BATCH_1, ...READING_BATCH_2, ...READING_BATCH_3].map(p => ({
+const STATIC_POOL = [...READING_BATCH_1, ...READING_BATCH_2, ...READING_BATCH_3, ...READING_BATCH_4, ...READING_BATCH_5].map(p => ({
     text: p.text,
     q: p.q,
     a: p.a,

@@ -2,6 +2,8 @@ import { database } from '../../database';
 import ContentItem from '../../database/models/ContentItem';
 import { STATIC_MATH_PROBLEMS, STATIC_ANALOGIES, STATIC_CONTEXT_PUZZLES, STATIC_RSVP_PASSAGES, STATIC_LIBRARIAN_ITEMS, STATIC_SYNTHESIZER_ITEMS, STATIC_CREATIVITY_PROMPTS, STATIC_REASONING_ITEMS } from './data/StaticContent';
 import { BATCH_2_RSVP, BATCH_2_MATH, BATCH_2_LOGIC } from './data/Batch2'; // Import Batch 2
+import { READING_BATCH_4 } from './data/reading/Batch4';
+import { READING_BATCH_5 } from './data/reading/Batch5';
 import { Q } from '@nozbe/watermelondb';
 
 export class ContentSeedService {
@@ -29,6 +31,15 @@ export class ContentSeedService {
             await this.seedBatch2();
         } else {
             console.log('[ContentSeed] Batch 2 already exists.');
+        }
+
+        const readingExtraCount = await database.collections.get('content_items').query(
+            Q.where('tags', Q.like('%batch_reading_extra%'))
+        ).fetchCount();
+
+        if (readingExtraCount === 0) {
+            console.log('[ContentSeed] Reading Batch 4+5 missing. Seeding...');
+            await this.seedReadingExtra();
         }
 
         console.log('[ContentSeed] Seeding complete.');
@@ -240,6 +251,25 @@ export class ContentSeedService {
             }
 
             await database.batch(...batchOperations);
+        });
+    }
+
+    private static async seedReadingExtra() {
+        await database.write(async () => {
+            const ops = [];
+            const col = database.collections.get<ContentItem>('content_items');
+            for (const item of [...READING_BATCH_4, ...READING_BATCH_5]) {
+                ops.push(col.prepareCreate(rec => {
+                    rec.exerciseId = 'rsvp_reader';
+                    rec.difficulty = item.diff;
+                    rec.contentJson = JSON.stringify({
+                        text: item.text,
+                        question: { q: item.q, answer: item.a, options: item.o },
+                    });
+                    rec.tags = ['text', `diff_${item.diff}`, 'batch_reading_extra'];
+                }));
+            }
+            await database.batch(...ops);
         });
     }
 }
