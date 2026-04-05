@@ -1,86 +1,62 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState } from 'react';
 import { View, StyleSheet } from 'react-native';
-import { Text, Button, Surface, Chip } from 'react-native-paper';
+import { Text, Button, Surface, useTheme } from 'react-native-paper';
 import { useRouter } from 'expo-router';
 import { GameContainer } from '../../components/GameContainer';
 import { EXERCISE_REGISTRY } from '../../features/engine/Registry';
 import { sessionService } from '../../features/engine/SessionService';
 
-function ToneBoard({ isPlaying, difficulty, mode, onScore }: any) {
-    const [problem, setProblem] = useState<any>(null);
+const ITEMS = [
+    { text: "Oh great, another Monday morning.", tone: "Sarcastic", options: ["Sarcastic", "Excited", "Sad", "Neutral"] },
+    { text: "I can't believe we won! This is amazing!", tone: "Excited", options: ["Excited", "Sad", "Angry", "Sarcastic"] },
+    { text: "I suppose things could be worse.", tone: "Resigned", options: ["Resigned", "Happy", "Angry", "Sarcastic"] },
+    { text: "Please stop interrupting me.", tone: "Frustrated", options: ["Frustrated", "Happy", "Neutral", "Sarcastic"] },
+    { text: "The meeting is scheduled for 3pm.", tone: "Neutral", options: ["Neutral", "Excited", "Sad", "Angry"] },
+    { text: "Yeah, sure, that's definitely a great idea.", tone: "Sarcastic", options: ["Sarcastic", "Genuine", "Neutral", "Happy"] },
+    { text: "I lost my wallet today... everything went wrong.", tone: "Sad", options: ["Sad", "Happy", "Angry", "Neutral"] },
+    { text: "How dare they treat people like that!", tone: "Angry", options: ["Angry", "Sad", "Happy", "Sarcastic"] },
+    { text: "I'm so grateful for everything you've done.", tone: "Grateful", options: ["Grateful", "Sarcastic", "Angry", "Neutral"] },
+    { text: "Whatever, it doesn't matter anyway.", tone: "Resigned", options: ["Resigned", "Angry", "Happy", "Excited"] },
+    { text: "This is the best day of my entire life!", tone: "Excited", options: ["Excited", "Sarcastic", "Sad", "Neutral"] },
+    { text: "Everything is fine. Totally fine.", tone: "Sarcastic", options: ["Sarcastic", "Neutral", "Happy", "Calm"] },
+];
 
-    // Context Mode
-    const SCENARIOS = [
-        { text: '"Oh, great. Just what I needed."', context: "Raining heavily on a picnic.", answer: "Sarcastic" },
-        { text: '"Oh, great! Just what I needed!"', context: "Receiving a desired gift.", answer: "Genuine" },
-        { text: '"We need to talk."', context: "Boss calling you into office.", answer: "Serious" },
-        { text: '"We need to talk."', context: "Friend laughing at a party.", answer: "Playful" }
-    ];
+function ToneBoard({ isPlaying, score, onScore }: any) {
+    const theme = useTheme();
+    const [item, setItem] = useState(ITEMS[0]);
+    const [answered, setAnswered] = useState<string | null>(null);
 
-    // Audio Traits Mode (Simulated)
-    const AUDIO = [
-        { traits: ['Pitch: High', 'Speed: Fast', 'Volume: Loud'], answer: 'Excited' },
-        { traits: ['Pitch: Low', 'Speed: Slow', 'Volume: Soft'], answer: 'Sad' },
-        { traits: ['Pitch: Sharp', 'Speed: Fast', 'Volume: Loud'], answer: 'Angry' },
-        { traits: ['Pitch: Monotone', 'Speed: Moderate', 'Volume: Moderate'], answer: 'Bored' }
-    ];
+    const next = () => setItem(ITEMS[Math.floor(Math.random() * ITEMS.length)]);
 
-    useEffect(() => {
-        if (isPlaying && !problem) nextRound();
-    }, [isPlaying, difficulty, mode, problem]);
-
-    const nextRound = () => {
-        if (mode === 'Audio Traits') {
-            setProblem(AUDIO[Math.floor(Math.random() * AUDIO.length)]);
-        } else {
-            setProblem(SCENARIOS[Math.floor(Math.random() * SCENARIOS.length)]);
-        }
-    };
-
-    const handleAnswer = (ans: string) => {
-        if (ans === problem.answer) onScore(10);
+    const handleAnswer = (choice: string) => {
+        setAnswered(choice);
+        if (choice === item.tone) onScore(10);
         else onScore(-5);
-        setProblem(null);
+        setTimeout(() => { setAnswered(null); next(); }, 700);
     };
 
-    if (!isPlaying || !problem) return <View />;
-
-    // Options
-    let opts = [];
-    if (mode === 'Audio Traits') {
-        opts = ['Excited', 'Sad', 'Angry', 'Bored'];
-    } else {
-        opts = ['Sarcastic', 'Genuine', 'Serious', 'Playful'];
-    }
+    if (!isPlaying) return <View />;
 
     return (
         <View style={styles.board}>
-            <Surface style={styles.card} elevation={2}>
-                {mode === 'Audio Traits' ? (
-                    <View>
-                        <Text variant="titleLarge" style={{ marginBottom: 20 }}>Analyze these vocal traits:</Text>
-                        <View style={{ flexDirection: 'row', flexWrap: 'wrap', gap: 10, justifyContent: 'center' }}>
-                            {problem.traits.map((t: string, i: number) => (
-                                <Chip key={i} icon="waveform">{t}</Chip>
-                            ))}
-                        </View>
-                    </View>
-                ) : (
-                    <View>
-                        <Text variant="titleMedium" style={{ color: '#666', marginBottom: 10 }}>Context: {problem.context}</Text>
-                        <Text variant="headlineSmall" style={{ fontStyle: 'italic', backgroundColor: '#e3f2fd', padding: 20, borderRadius: 10 }}>
-                            {problem.text}
-                        </Text>
-                    </View>
-                )}
+            <Text variant="titleMedium" style={{ position: 'absolute', top: 20, right: 20, color: '#666' }}>Score: {score}</Text>
+            <Text variant="titleMedium" style={{ marginBottom: 16, color: theme.colors.onSurfaceVariant }}>What's the tone of this statement?</Text>
+            <Surface style={styles.card} elevation={3}>
+                <Text variant="headlineMedium" style={{ textAlign: 'center', color: theme.colors.onSurface, fontStyle: 'italic' }}>
+                    "{item.text}"
+                </Text>
             </Surface>
-
             <View style={styles.options}>
-                {opts.map((opt, i) => (
-                    <Button key={i} mode="contained" onPress={() => handleAnswer(opt)} style={styles.btn}>
-                        {opt}
-                    </Button>
-                ))}
+                {item.options.map((opt) => {
+                    let col = theme.colors.primary;
+                    if (answered) col = opt === item.tone ? '#4CAF50' : opt === answered ? '#F44336' : '#aaa';
+                    return (
+                        <Button key={opt} mode="contained" onPress={() => !answered && handleAnswer(opt)}
+                            style={styles.optBtn} buttonColor={col}>
+                            {opt}
+                        </Button>
+                    );
+                })}
             </View>
         </View>
     );
@@ -89,37 +65,19 @@ function ToneBoard({ isPlaying, difficulty, mode, onScore }: any) {
 export default function ToneTriangulator() {
     const router = useRouter();
     const [score, setScore] = useState(0);
-
     return (
-        <GameContainer
-            config={{ ...EXERCISE_REGISTRY['tone_triangulator'], params: {} }}
-            modes={['Context', 'Audio Traits']}
-            onFinish={async () => {
-                await sessionService.saveSession({
-                    exerciseId: 'tone_triangulator',
-                    rawScore: score,
-                    normalizedScore: Math.min(score * 10, 100),
-                    metrics: { solved: score },
-                    durationSeconds: 60
-                });
-                router.back();
-            }}
-        >
-            {({ isPlaying, difficulty, mode }) => (
-                <ToneBoard
-                    isPlaying={isPlaying}
-                    difficulty={difficulty}
-                    mode={mode}
-                    onScore={(s: number) => setScore(prev => prev + s)}
-                />
-            )}
+        <GameContainer config={{ ...EXERCISE_REGISTRY['tone_triangulator'], params: {} }} onFinish={async () => {
+            await sessionService.saveSession({ exerciseId: 'tone_triangulator', rawScore: score, normalizedScore: Math.min(score, 100), metrics: { score }, durationSeconds: 60 });
+            router.back();
+        }}>
+            {({ isPlaying }) => <ToneBoard isPlaying={isPlaying} score={score} onScore={(s: number) => setScore(p => p + s)} />}
         </GameContainer>
     );
 }
 
 const styles = StyleSheet.create({
-    board: { flex: 1, padding: 20, justifyContent: 'center', alignItems: 'center' },
-    card: { padding: 30, backgroundColor: 'white', borderRadius: 15, marginBottom: 40, width: '100%', alignItems: 'center' },
-    options: { flexDirection: 'row', flexWrap: 'wrap', justifyContent: 'center', gap: 10 },
-    btn: { width: 140 }
+    board: { flex: 1, padding: 20, alignItems: 'center', justifyContent: 'center' },
+    card: { padding: 24, borderRadius: 16, width: '100%', marginBottom: 24, backgroundColor: 'white' },
+    options: { flexDirection: 'row', flexWrap: 'wrap', gap: 12, justifyContent: 'center' },
+    optBtn: { minWidth: 140, borderRadius: 10 },
 });
