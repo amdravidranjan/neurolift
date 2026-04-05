@@ -1,98 +1,100 @@
 import React, { useState, useEffect } from 'react';
-import { View, StyleSheet, ScrollView, TextInput, TouchableOpacity } from 'react-native';
-import { Text, Surface } from 'react-native-paper';
+import { View, StyleSheet, Animated } from 'react-native';
+import { Text, Button, Surface, useTheme } from 'react-native-paper';
 import { useRouter } from 'expo-router';
 import { GameContainer } from '../../components/GameContainer';
 import { EXERCISE_REGISTRY } from '../../features/engine/Registry';
 import { sessionService } from '../../features/engine/SessionService';
-import { ContentGenerator } from '../../features/engine/ContentGenerator';
+import { database } from '../../database';
+import ContentItem from '../../database/models/ContentItem';
+import { Q } from '@nozbe/watermelondb';
 
-function SynthesizerBoard({ isPlaying, difficulty, mode, onScore, score }: any) {
-    const [sources, setSources] = useState<string[]>([]);
-    const [input, setInput] = useState('');
+function SynthBoard({ isPlaying, score, onScore }: any) {
+    const theme = useTheme();
+    const [item, setItem] = useState<{ text: string; isTrue: boolean } | null>(null);
+    const [feedback, setFeedback] = useState<'none' | 'correct' | 'wrong'>('none');
+    const [pool, setPool] = useState<any[]>([]);
+    const fadeAnim = new Animated.Value(1);
 
     useEffect(() => {
-        if (isPlaying && sources.length === 0) {
-            const count = 2 + difficulty;
-            const newSources = [];
-            for (let i = 0; i < count; i++) newSources.push(ContentGenerator.generateTextChunk(i));
-            setSources(newSources);
-        }
-    }, [isPlaying, difficulty, mode]);
+        if (isPlaying) loadItems();
+    }, [isPlaying]);
 
-    const handleSubmit = () => {
-        // Mock scoring based on length
-        const len = input.length;
-        const score = Math.min(100, len); // 1 point per char, cap 100
-        onScore(score);
+    const loadItems = async () => {
+        try {
+            const items = await database.collections.get<ContentItem>('content_items')
+                .query(Q.where('exercise_id', 'synthesizer'), Q.take(80)).fetch();
+            if (items.length > 0) {
+                const parsed = items.sort(() => Math.random() - 0.5).map(i => JSON.parse(i.contentJson));
+                setPool(parsed);
+                setItem(parsed[0]);
+            }
+        } catch { nextItem([]); }
     };
 
-    if (!isPlaying) return <View />;
+    const nextItem = (currentPool: any[]) => {
+        if (currentPool.length > 0) {
+            setItem(currentPool[Math.floor(Math.random() * currentPool.length)]);
+        }
+    };
+
+    const handleAnswer = (answer: boolean) => {
+        if (!item) return;
+        const correct = answer === item.isTrue;
+        setFeedback(correct ? 'correct' : 'wrong');
+        onScore(correct ? 15 : -10);
+
+        Animated.sequence([
+            Animated.timing(fadeAnim, { toValue: 0.3, duration: 200, useNativeDriver: true }),
+            Animated.timing(fadeAnim, { toValue: 1, duration: 200, useNativeDriver: true }),
+        ]).start();
+
+        setTimeout(() => { setFeedback('none'); nextItem(pool); }, 400);
+    };
+
+    if (!isPlaying || !item) return <View />;
+
+    const bgColor = feedback === 'correct' ? '#dcedc8' : feedback === 'wrong' ? '#ffcdd2' : theme.colors.surface;
 
     return (
-        <ScrollView contentContainerStyle={styles.board}>
-            <View style={{ alignSelf: 'flex-end', marginBottom: 10 }}>
-                <Text variant="titleMedium">Score: {score}</Text>
+        <View style={styles.board}>
+            <Text variant="titleMedium" style={{ position: 'absolute', top: 20, right: 20, color: '#666' }}>Score: {score}</Text>
+            <Animated.View style={{ opacity: fadeAnim, width: '100%' }}>
+                <Surface style={[styles.card, { backgroundColor: bgColor }]} elevation={3}>
+                    <Text variant="headlineSmall" style={{ textAlign: 'center', color: theme.colors.onSurface }}>
+                        {item.text}
+                    </Text>
+                </Surface>
+            </Animated.View>
+            <Text variant="bodyMedium" style={{ marginVertical: 20, color: theme.colors.onSurfaceVariant }}>Is this statement TRUE or FALSE?</Text>
+            <View style={styles.btnRow}>
+                <Button mode="contained" onPress={() => handleAnswer(true)} buttonColor="#4CAF50" style={styles.tfBtn} contentStyle={{ height: 56 }}>
+                    TRUE ✓
+                </Button>
+                <Button mode="contained" onPress={() => handleAnswer(false)} buttonColor="#F44336" style={styles.tfBtn} contentStyle={{ height: 56 }}>
+                    FALSE ✗
+                </Button>
             </View>
-            <Text variant="titleMedium" style={{ marginBottom: 10 }}>Synthesize these {sources.length} sources:</Text>
-            <View style={styles.sourceContainer}>
-                {sources.map((s, i) => (
-                    <Surface key={i} style={styles.sourceCard} elevation={2}>
-                        <Text style={{ fontWeight: 'bold', marginBottom: 5 }}>Source {i + 1}</Text>
-                        <Text numberOfLines={5}>{s}</Text>
-                    </Surface>
-                ))}
-            </View>
-            <TextInput
-                style={styles.input}
-                multiline
-                placeholder="Write your summary here..."
-                value={input}
-                onChangeText={setInput}
-            />
-            <TouchableOpacity style={styles.submitBtn} onPress={handleSubmit}>
-                <Text style={{ color: 'white', fontWeight: 'bold' }}>SUBMIT</Text>
-            </TouchableOpacity>
-        </ScrollView>
+        </View>
     );
 }
 
 export default function Synthesizer() {
     const router = useRouter();
     const [score, setScore] = useState(0);
-
     return (
-        <GameContainer
-            config={{ ...EXERCISE_REGISTRY['synthesizer'], params: {} }}
-            modes={['Summary', 'Comparison']}
-            onFinish={async () => {
-                await sessionService.saveSession({
-                    exerciseId: 'synthesizer',
-                    rawScore: score,
-                    normalizedScore: Math.min(score, 100),
-                    metrics: { length: score },
-                    durationSeconds: 60
-                });
-                router.back();
-            }}
-        >
-            {({ isPlaying, difficulty, mode }) => (
-                <SynthesizerBoard
-                    isPlaying={isPlaying}
-                    difficulty={difficulty}
-                    mode={mode}
-                    score={score}
-                    onScore={(s: number) => setScore(s)}
-                />
-            )}
+        <GameContainer config={{ ...EXERCISE_REGISTRY['synthesizer'], params: {} }} onFinish={async () => {
+            await sessionService.saveSession({ exerciseId: 'synthesizer', rawScore: score, normalizedScore: Math.min(score, 100), metrics: { score }, durationSeconds: 60 });
+            router.back();
+        }}>
+            {({ isPlaying }) => <SynthBoard isPlaying={isPlaying} score={score} onScore={(s: number) => setScore(p => p + s)} />}
         </GameContainer>
     );
 }
 
 const styles = StyleSheet.create({
-    board: { padding: 20, alignItems: 'center' },
-    sourceContainer: { flexDirection: 'row', flexWrap: 'wrap', gap: 10, justifyContent: 'center', marginBottom: 20 },
-    sourceCard: { width: '45%', padding: 10, backgroundColor: '#e3f2fd', borderRadius: 8, marginBottom: 10 },
-    input: { width: '100%', minHeight: 100, backgroundColor: 'white', borderColor: '#ccc', borderWidth: 1, padding: 10, borderRadius: 5 },
-    submitBtn: { marginTop: 20, backgroundColor: '#6200ee', padding: 15, borderRadius: 25, width: 200, alignItems: 'center' }
+    board: { flex: 1, padding: 20, alignItems: 'center', justifyContent: 'center' },
+    card: { padding: 30, borderRadius: 16, marginBottom: 10, width: '100%', minHeight: 120, justifyContent: 'center' },
+    btnRow: { flexDirection: 'row', gap: 20 },
+    tfBtn: { flex: 1, borderRadius: 12 },
 });
