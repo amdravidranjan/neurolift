@@ -57,8 +57,18 @@ export const EXERCISE_REGISTRY: Record<string, ExerciseConfig> = {
             { key: 'chunk', label: 'Words per Flash', type: 'slider', min: 1, max: 4, step: 1, default: 1 }
         ]
     },
-    'context_hunter': { id: 'context_hunter', pillarId: 'language', name: 'Context Hunter', description: 'Fill in the missing words based on context clues.', baseDifficulty: { speedMs: 0, complexity: 1 }, hidden: true },
-    'synthesizer': { id: 'synthesizer', pillarId: 'language', name: 'Synthesizer', description: 'Read passages and identify the core concepts and summaries.', baseDifficulty: { speedMs: 0, complexity: 1 }, hidden: true },
+    'context_hunter': {
+        id: 'context_hunter', pillarId: 'language', name: 'Context Hunter',
+        description: 'Identify the word that matches all given clues.',
+        baseDifficulty: { speedMs: 0, complexity: 1 },
+        tutorial: "Read the clues and pick the word that matches all of them.",
+    },
+    'synthesizer': {
+        id: 'synthesizer', pillarId: 'language', name: 'Synthesizer',
+        description: 'Judge whether statements are true or false.',
+        baseDifficulty: { speedMs: 0, complexity: 1 },
+        tutorial: "Read each statement and tap TRUE or FALSE as fast as you can.",
+    },
     'mental_workbench': {
         id: 'mental_workbench', pillarId: 'memory', name: 'Mental Workbench', description: 'Hold multiple numbers in mind and perform operations on them.',
         baseDifficulty: { speedMs: 0, complexity: 3 },
@@ -99,23 +109,42 @@ export const EXERCISE_REGISTRY: Record<string, ExerciseConfig> = {
             { key: 'complexity', label: 'Rule Complexity', type: 'select', options: ['Basic (2 Rules)', 'Advanced (3 Rules)'], default: 'Basic (2 Rules)' }
         ]
     },
-    'concept_sprint': { id: 'concept_sprint', pillarId: 'learning', name: 'Concept Sprint', description: 'Rapidly learn and recall new symbol-concept associations.', baseDifficulty: { speedMs: 0, complexity: 1 }, hidden: true },
+    'concept_sprint': {
+        id: 'concept_sprint', pillarId: 'learning', name: 'Concept Sprint',
+        description: 'Learn symbol-concept associations, then recall them.',
+        baseDifficulty: { speedMs: 0, complexity: 1 },
+        tutorial: "Study 3 symbol-concept pairs, then answer quiz questions from memory.",
+    },
 
     // Batch D
-    'alternative_uses': { id: 'alternative_uses', pillarId: 'creativity', name: 'Alternative Uses', description: 'Generate as many creative uses for an object as possible.', baseDifficulty: { speedMs: 0, complexity: 1 }, hidden: true },
+    'alternative_uses': {
+        id: 'alternative_uses', pillarId: 'creativity', name: 'Alternative Uses',
+        description: 'Generate creative uses for everyday objects.',
+        baseDifficulty: { speedMs: 0, complexity: 1 },
+        tutorial: "You have 60 seconds to list as many uses for the object as possible. Creativity wins!",
+    },
     'shape_crafter': { id: 'shape_crafter', pillarId: 'creativity', name: 'Shape Crafter', description: 'Create recognized objects using simple shapes.', baseDifficulty: { speedMs: 0, complexity: 1 }, hidden: true },
-    'story_spinner': { id: 'story_spinner', pillarId: 'creativity', name: 'Story Spinner', description: 'Weave disparate words into a coherent narrative.', baseDifficulty: { speedMs: 0, complexity: 1 }, hidden: true },
+    'story_spinner': {
+        id: 'story_spinner', pillarId: 'creativity', name: 'Story Spinner',
+        description: 'Connect 3 random words into a creative sentence.',
+        baseDifficulty: { speedMs: 0, complexity: 1 },
+        tutorial: "Three words will appear. Write a sentence that uses all three meaningfully.",
+    },
     'micro_expression': {
         id: 'micro_expression', pillarId: 'social', name: 'Micro-Expression',
         description: 'Identify fleeting emotional expressions.',
         baseDifficulty: { speedMs: 500, complexity: 1 },
-        tutorial: "A face will flash briefly. Identify the emotion as fast as you can.",
+        tutorial: "An emoji will flash briefly on screen. Identify the emotion it represents.",
         settingsSchema: [
             { key: 'flashMs', label: 'Flash Duration (ms)', type: 'slider', min: 200, max: 1000, step: 100, default: 500 },
         ],
-        hidden: true,
     },
-    'tone_triangulator': { id: 'tone_triangulator', pillarId: 'social', name: 'Tone Triangulator', description: 'Determine the emotional tone behind statements.', baseDifficulty: { speedMs: 0, complexity: 1 }, hidden: true },
+    'tone_triangulator': {
+        id: 'tone_triangulator', pillarId: 'social', name: 'Tone Triangulator',
+        description: 'Identify the emotional tone of statements.',
+        baseDifficulty: { speedMs: 0, complexity: 1 },
+        tutorial: "Read each statement and identify whether the tone is sarcastic, happy, sad, angry, or neutral.",
+    },
 
     'tower_of_hanoi': {
         id: 'tower_of_hanoi', pillarId: 'executive', name: 'Tower of Hanoi', description: 'Classic planning and problem-solving puzzle.',
@@ -128,14 +157,34 @@ export const EXERCISE_REGISTRY: Record<string, ExerciseConfig> = {
         ]
     },
 
-    'debater': { id: 'debater', pillarId: 'reasoning', name: 'Debater', description: 'Identify logical fallacies in arguments.', baseDifficulty: { speedMs: 0, complexity: 1 }, hidden: true },
+    'debater': {
+        id: 'debater', pillarId: 'reasoning', name: 'Debater',
+        description: 'Identify logical fallacies in arguments.',
+        baseDifficulty: { speedMs: 0, complexity: 1 },
+        tutorial: "Read each argument and identify the logical fallacy it contains from the 4 options.",
+    },
     'analogy_builder': { id: 'analogy_builder', pillarId: 'reasoning', name: 'Analogy Builder', description: 'Complete complex analogies between concepts.', baseDifficulty: { speedMs: 0, complexity: 1 } },
 
     // Batch E
-    'echo_location': { id: 'echo_location', pillarId: 'sensory', name: 'Echo Location', description: 'Map spatial locations using audio cues.', baseDifficulty: { speedMs: 0, complexity: 1 }, hidden: true },
-    'life_logger': { id: 'life_logger', pillarId: 'calm', name: 'Life Logger', description: 'Reinforce episodic memory by logging daily events.', baseDifficulty: { speedMs: 0, complexity: 1 }, hidden: true },
+    'echo_location': {
+        id: 'echo_location', pillarId: 'sensory', name: 'Echo Location',
+        description: 'Memorize lit grid cells and tap them from memory.',
+        baseDifficulty: { speedMs: 0, complexity: 1 },
+        tutorial: "Watch which cells light up, then tap them from memory after they go dark.",
+    },
+    'life_logger': {
+        id: 'life_logger', pillarId: 'calm', name: 'Life Logger',
+        description: "Log today's events and recall yesterday's from memory.",
+        baseDifficulty: { speedMs: 0, complexity: 1 },
+        tutorial: "Write one memorable event from today. Come back tomorrow to test your episodic memory.",
+    },
     'day_architect': { id: 'day_architect', pillarId: 'calm', name: 'Day Architect', description: 'Plan your day to activate executive function.', baseDifficulty: { speedMs: 0, complexity: 1 } },
-    'mood_journal': { id: 'mood_journal', pillarId: 'calm', name: 'Mood Journal', description: 'Track your emotional state and its impact on performance.', baseDifficulty: { speedMs: 0, complexity: 1 }, hidden: true },
+    'mood_journal': {
+        id: 'mood_journal', pillarId: 'calm', name: 'Mood Journal',
+        description: 'Track your emotional state to build self-awareness.',
+        baseDifficulty: { speedMs: 0, complexity: 1 },
+        tutorial: "Select your current mood and optionally write a note. Consistent tracking builds emotional intelligence.",
+    },
 };
 
 export const PILLARS = {
