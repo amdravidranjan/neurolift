@@ -26,6 +26,33 @@ class SessionService {
                 score.metrics = result.metrics;
             });
         });
+
+        // Fire achievement checks asynchronously (non-blocking)
+        this.checkAchievements(result).catch(e => console.warn('Achievement check failed', e));
+    }
+
+    private async checkAchievements(result: GameResult) {
+        const { achievementService } = require('./AchievementService');
+        const { streakService } = require('../analytics/StreakService');
+
+        const [count, streak, playedIds] = await Promise.all([
+            this.getTotalSessionCount(),
+            streakService.calculateStreak(),
+            this.getAllPlayedExerciseIds(),
+        ]);
+
+        const { EXERCISE_REGISTRY } = require('./Registry');
+        const totalNonHidden = Object.values(EXERCISE_REGISTRY).filter((e: any) => !e.hidden).length;
+
+        return achievementService.checkAndUnlock({
+            exerciseId: result.exerciseId,
+            normalizedScore: result.normalizedScore,
+            metrics: result.metrics,
+            streak,
+            totalSessions: count,
+            allPlayedExerciseIds: playedIds,
+            totalNonHiddenExercises: totalNonHidden,
+        });
     }
 
     async getRecentSessions(limit = 10) {
