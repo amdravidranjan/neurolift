@@ -5,6 +5,7 @@ import { ExerciseConfig } from '../features/engine/CortexEngine';
 import { useRouter } from 'expo-router';
 import { ExerciseSettings } from './ExerciseSettings';
 import { useGameContext } from '../features/engine/GameContext';
+import { sessionService } from '../features/engine/SessionService';
 
 interface GameContainerProps {
     config: ExerciseConfig;
@@ -64,13 +65,7 @@ export function GameContainer({ config, onFinish, children, modes = ['Standard']
     // Fetch High Score
     useEffect(() => {
         if (!isAssessment) {
-            try {
-                // Lazy load
-                const { sessionService } = require('../features/engine/SessionService');
-                sessionService.getHighScore(config.id).then(setHighScore);
-            } catch (e) {
-                console.warn("Failed to load high score", e);
-            }
+            sessionService.getHighScore(config.id).then(setHighScore).catch(() => {});
         }
     }, [config.id, isAssessment]);
 
