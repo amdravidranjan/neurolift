@@ -23,6 +23,13 @@ function ContextBoard({ isPlaying, score, onScore }: any) {
 
     useEffect(() => { if (isPlaying) loadItems(); }, [isPlaying]);
 
+    const shuffle = (arr: string[]) => [...arr].sort(() => Math.random() - 0.5);
+
+    const pickItem = (from: any[]) => {
+        const raw = from[Math.floor(Math.random() * from.length)];
+        return { ...raw, options: shuffle(raw.options) };
+    };
+
     const loadItems = async () => {
         try {
             const items = await database.collections.get<ContentItem>('content_items')
@@ -31,18 +38,19 @@ function ContextBoard({ isPlaying, score, onScore }: any) {
                 ? items.sort(() => Math.random() - 0.5).map(i => JSON.parse(i.contentJson))
                 : FALLBACK;
             setPool(parsed);
-            setItem(parsed[0]);
+            setItem(pickItem(parsed));
         } catch {
             setPool(FALLBACK);
-            setItem(FALLBACK[0]);
+            setItem(pickItem(FALLBACK));
         }
     };
 
     const handleAnswer = (choice: string) => {
+        if (answered) return;
         setAnswered(choice);
         if (choice === item.target) onScore(10);
         else onScore(-5);
-        setTimeout(() => { setAnswered(null); setItem(pool[Math.floor(Math.random() * pool.length)]); }, 700);
+        setTimeout(() => { setAnswered(null); setItem(pickItem(pool)); }, 700);
     };
 
     if (!isPlaying || !item) return <View />;

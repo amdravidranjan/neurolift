@@ -29,8 +29,9 @@ function MicroBoard({ isPlaying, score, onScore, settings }: any) {
     useEffect(() => { if (isPlaying) nextRound(); }, [isPlaying]);
 
     const nextRound = () => {
-        const item = EXPRESSIONS[Math.floor(Math.random() * EXPRESSIONS.length)];
-        setCurrent(item);
+        const raw = EXPRESSIONS[Math.floor(Math.random() * EXPRESSIONS.length)];
+        const shuffled = { ...raw, options: [...raw.options].sort(() => Math.random() - 0.5) };
+        setCurrent(shuffled);
         setPhase('FLASH');
         Animated.sequence([
             Animated.timing(fadeAnim, { toValue: 1, duration: 100, useNativeDriver: true }),
@@ -39,10 +40,14 @@ function MicroBoard({ isPlaying, score, onScore, settings }: any) {
         ]).start(() => setPhase('ANSWER'));
     };
 
+    const [answered, setAnswered] = useState(false);
+
     const handleAnswer = (choice: string) => {
+        if (answered) return;
+        setAnswered(true);
         if (choice === current.emotion) onScore(10);
         else onScore(-5);
-        setTimeout(nextRound, 300);
+        setTimeout(() => { setAnswered(false); nextRound(); }, 500);
     };
 
     if (!isPlaying || !current) return <View />;

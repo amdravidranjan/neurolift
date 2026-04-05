@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useRef } from 'react';
 import { View, StyleSheet, Animated } from 'react-native';
 import { Text, Button, Surface, useTheme } from 'react-native-paper';
 import { useRouter } from 'expo-router';
@@ -14,7 +14,7 @@ function SynthBoard({ isPlaying, score, onScore }: any) {
     const [item, setItem] = useState<{ text: string; isTrue: boolean } | null>(null);
     const [feedback, setFeedback] = useState<'none' | 'correct' | 'wrong'>('none');
     const [pool, setPool] = useState<any[]>([]);
-    const fadeAnim = new Animated.Value(1);
+    const fadeAnim = useRef(new Animated.Value(1)).current;
 
     useEffect(() => {
         if (isPlaying) loadItems();

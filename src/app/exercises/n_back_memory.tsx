@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useRef } from 'react';
 import { View, StyleSheet, TouchableOpacity } from 'react-native';
 import { Text, Button } from 'react-native-paper';
 import { useRouter } from 'expo-router';
@@ -17,6 +17,7 @@ function NBackBoard({ isPlaying, settings, onScore, score }: NBackBoardProps) {
     const [history, setHistory] = useState<{ pos: number, audio: string }[]>([]);
     const [current, setCurrent] = useState<{ pos: number, audio: string } | null>(null);
     const [feedback, setFeedback] = useState('');
+    const answeredRef = useRef<Record<'POS' | 'AUDIO', boolean>>({ POS: false, AUDIO: false });
 
     const n = settings.n || 2;
     const mode = settings.mode || 'Visual';
@@ -29,21 +30,28 @@ function NBackBoard({ isPlaying, settings, onScore, score }: NBackBoardProps) {
         }
     }, [isPlaying, intervalTime]);
 
+    const historyRef = useRef<{ pos: number, audio: string }[]>([]);
+
     const nextStimulus = () => {
         const gridPos = Math.floor(Math.random() * 9);
         const letters = ['A', 'B', 'C', 'D', 'E'];
         const letter = letters[Math.floor(Math.random() * letters.length)];
 
         const newItem = { pos: gridPos, audio: letter };
+        historyRef.current = [...historyRef.current, newItem];
         setCurrent(newItem);
-        setHistory(h => [...h, newItem]);
-        setFeedback(''); // Clear feedback
+        setHistory(historyRef.current);
+        setFeedback('');
+        answeredRef.current = { POS: false, AUDIO: false };
     };
 
     const checkMatch = (type: 'POS' | 'AUDIO') => {
-        if (history.length < n + 1) return; // Not enough history
-        const target = history[history.length - 1 - n]; // N steps ago
-        const now = history[history.length - 1];
+        if (answeredRef.current[type]) return; // prevent double-press
+        answeredRef.current[type] = true;
+        const h = historyRef.current;
+        if (h.length < n + 1) return; // Not enough history
+        const target = h[h.length - 1 - n]; // N steps ago
+        const now = h[h.length - 1];
 
         if (type === 'POS') {
             if (target.pos === now.pos) {

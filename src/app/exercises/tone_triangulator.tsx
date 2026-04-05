@@ -21,12 +21,18 @@ const ITEMS = [
     { text: "Everything is fine. Totally fine.", tone: "Sarcastic", options: ["Sarcastic", "Neutral", "Happy", "Calm"] },
 ];
 
+const shuffle = (arr: string[]) => [...arr].sort(() => Math.random() - 0.5);
+const pickItem = () => {
+    const raw = ITEMS[Math.floor(Math.random() * ITEMS.length)];
+    return { ...raw, options: shuffle(raw.options) };
+};
+
 function ToneBoard({ isPlaying, score, onScore }: any) {
     const theme = useTheme();
-    const [item, setItem] = useState(ITEMS[0]);
+    const [item, setItem] = useState(pickItem);
     const [answered, setAnswered] = useState<string | null>(null);
 
-    const next = () => setItem(ITEMS[Math.floor(Math.random() * ITEMS.length)]);
+    const next = () => setItem(pickItem());
 
     const handleAnswer = (choice: string) => {
         setAnswered(choice);

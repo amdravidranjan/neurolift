@@ -17,6 +17,11 @@ function DebaterBoard({ isPlaying, score, onScore }: any) {
 
     useEffect(() => { if (isPlaying) loadItems(); }, [isPlaying]);
 
+    const pickItem = (from: any[]) => {
+        const raw = from[Math.floor(Math.random() * from.length)];
+        return { ...raw, options: [...raw.options].sort(() => Math.random() - 0.5) };
+    };
+
     const loadItems = async () => {
         try {
             const items = await database.collections.get<ContentItem>('content_items')
@@ -24,7 +29,7 @@ function DebaterBoard({ isPlaying, score, onScore }: any) {
             if (items.length > 0) {
                 const parsed = items.sort(() => Math.random() - 0.5).map(i => JSON.parse(i.contentJson));
                 setPool(parsed);
-                setItem(parsed[0]);
+                setItem(pickItem(parsed));
             }
         } catch {}
     };
@@ -37,7 +42,7 @@ function DebaterBoard({ isPlaying, score, onScore }: any) {
     };
 
     const nextItem = () => {
-        if (pool.length > 0) setItem(pool[Math.floor(Math.random() * pool.length)]);
+        if (pool.length > 0) setItem(pickItem(pool));
     };
 
     if (!isPlaying || !item) return <View />;
