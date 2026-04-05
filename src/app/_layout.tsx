@@ -17,6 +17,7 @@ function RootNavigator() {
                 contentStyle: { backgroundColor: theme.colors.background }
             }}>
                 <Stack.Screen name="index" options={{ headerShown: false }} />
+                <Stack.Screen name="analytics/index" options={{ headerShown: false }} />
                 <Stack.Screen name="settings/index" options={{ headerShown: false }} />
             </Stack>
         </PaperProvider>

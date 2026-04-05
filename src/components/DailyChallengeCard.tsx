@@ -16,7 +16,7 @@ export function DailyChallengeCard({ exerciseName, pillarLabel, completed, onPre
     return (
         <View style={[styles.card, { backgroundColor: completed ? theme.colors.surfaceVariant : '#1A1A2E' }]}>
             <View style={styles.header}>
-                <PhosphorIcon name="lightning-fill" size={18} color="#FFD700" />
+                <PhosphorIcon name="lightning" size={18} color="#FFD700" filled />
                 <Text variant="labelSmall" style={styles.dailyLabel}>DAILY CHALLENGE</Text>
                 <View style={styles.xpBadge}>
                     <Text style={styles.xpText}>2× XP</Text>
